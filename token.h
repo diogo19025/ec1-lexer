@@ -3,6 +3,7 @@
 
 #include <string>
 #include <cstddef>
+#include <ostream>
 
 enum class TokenType {
     LITERAL,
@@ -12,8 +13,22 @@ enum class TokenType {
     SUB,
     MULT,
     DIV,
-    FIM,         // EOF
+    FIM,
     INVALIDO
 };
+
+struct Token {
+    TokenType tipo;
+    std::string lexema;
+    std::size_t posicao;
+
+    Token(TokenType tipo, std::string lexema, std::size_t posicao);
+};
+
+// Sobrecarga do operador << para printar diretamente
+std::ostream& operator<<(std::ostream& os, const Token& token);
+
+// Converter ENUM em STRING para usos externos
+std::string token_type_to_string(TokenType tipo);
 
 #endif // TOKEN_H

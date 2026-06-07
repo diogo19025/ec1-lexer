@@ -1,4 +1,6 @@
 #include "lexer.h"
+#include "parser.h"   // Atividade 05
+#include "ast.h"      // Atividade 05
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -27,6 +29,34 @@ int main(int argc, char* argv[]) {
     // imprime cada token no formato <Tipo, "lexema", posicao>
     for (const Token& t : tokens)
         std::cout << t << "\n";
+
+    // --- Atividade 05: análise sintática + interpretação ---
+    // Reconstrói a sequência de tokens preservando os INVALIDO, para que o
+    // analisador sintático consiga reportá-los como erro.
+    Lexer lexer_sintatico(entrada);
+    std::vector<Token> tokens_sintaticos;
+    while (true) {
+        Token t = lexer_sintatico.proximo_token();
+        tokens_sintaticos.push_back(t);
+        if (t.get_tipo() == TokenType::FIM)
+            break;
+    }
+
+    try {
+        Parser parser(std::move(tokens_sintaticos));
+        std::unique_ptr<Exp> arvore = parser.analisar();
+
+        std::cout << "\nArvore (linear): " << arvore->imprimir() << "\n";
+        std::cout << "Arvore (visual):\n";
+        arvore->imprimir_arvore(std::cout, 1);
+        std::cout << "Valor: " << arvore->avaliar() << "\n";
+    } catch (const ErroSintatico& e) {
+        std::cerr << "Erro de sintaxe: " << e.what() << "\n";
+        return 1;
+    } catch (const std::exception& e) {
+        std::cerr << "Erro: " << e.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }

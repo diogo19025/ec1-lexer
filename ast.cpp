@@ -11,8 +11,6 @@ std::string operador_para_string(Operador op) {
     }
 }
 
-// ---------------- Const ----------------
-
 Const::Const(long long valor) : valor(valor) {}
 
 long long Const::get_valor() const { return valor; }
@@ -25,13 +23,10 @@ void Const::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << valor << "\n";
 }
 
-// ---------------- OpBin ----------------
-
 OpBin::OpBin(Operador op, std::unique_ptr<Exp> esq, std::unique_ptr<Exp> dir)
     : op(op), esq(std::move(esq)), dir(std::move(dir)) {}
 
 long long OpBin::avaliar() const {
-    // Interpretador de varredura: avalia os dois operandos e aplica o operador.
     long long a = esq->avaliar();
     long long b = dir->avaliar();
     switch (op) {

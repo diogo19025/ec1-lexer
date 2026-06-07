@@ -1,6 +1,6 @@
 #include "lexer.h"
-#include "parser.h"   // Atividade 05
-#include "ast.h"      // Atividade 05
+#include "parser.h"
+#include "ast.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -11,7 +11,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // abre e lê o arquivo
     std::ifstream arquivo(argv[1]);
     if (!arquivo.is_open()) {
         std::cerr << "Erro: não foi possível abrir o arquivo '" << argv[1] << "'\n";
@@ -22,17 +21,12 @@ int main(int argc, char* argv[]) {
     buf << arquivo.rdbuf();
     std::string entrada = buf.str();
 
-    // roda o lexer
     Lexer lexer(entrada);
     std::vector<Token> tokens = lexer.tokenizar();
 
-    // imprime cada token no formato <Tipo, "lexema", posicao>
     for (const Token& t : tokens)
         std::cout << t << "\n";
 
-    // --- Atividade 05: análise sintática + interpretação ---
-    // Reconstrói a sequência de tokens preservando os INVALIDO, para que o
-    // analisador sintático consiga reportá-los como erro.
     Lexer lexer_sintatico(entrada);
     std::vector<Token> tokens_sintaticos;
     while (true) {

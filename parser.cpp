@@ -7,14 +7,13 @@ Parser::Parser(std::vector<Token> tokens)
     : tokens(std::move(tokens)), pos(0) {}
 
 const Token& Parser::atual() const {
-    // A lista sempre termina com um token FIM, entao pos e valida.
     return tokens[pos];
 }
 
 Token Parser::avancar() {
     Token t = tokens[pos];
     if (pos + 1 < tokens.size())
-        ++pos;          // nunca avancamos alem do token FIM
+        ++pos;
     return t;
 }
 
@@ -29,11 +28,9 @@ Token Parser::consumir(TokenType tipo, const std::string& contexto) {
     return avancar();
 }
 
-// <expressao> ::= <literal> | '(' <expressao> <operador> <expressao> ')'
 std::unique_ptr<Exp> Parser::analisaExp() {
     const Token& tok = atual();
 
-    // Caso 1: literal inteiro -> no constante (expressao completa).
     if (tok.get_tipo() == TokenType::LITERAL) {
         avancar();
         try {
@@ -46,24 +43,21 @@ std::unique_ptr<Exp> Parser::analisaExp() {
         }
     }
 
-    // Caso 2: abre parentese -> operacao binaria (analise recursiva).
     if (tok.get_tipo() == TokenType::PAREN_ESQ) {
-        avancar();                                  // consome '('
-        std::unique_ptr<Exp> esq = analisaExp();    // operando esquerdo
-        Operador op = analisaOperador();            // operador
-        std::unique_ptr<Exp> dir = analisaExp();    // operando direito
+        avancar();
+        std::unique_ptr<Exp> esq = analisaExp();
+        Operador op = analisaOperador();
+        std::unique_ptr<Exp> dir = analisaExp();
         consumir(TokenType::PAREN_DIR, "para fechar a expressao");
         return std::make_unique<OpBin>(op, std::move(esq), std::move(dir));
     }
 
-    // Caso 3: qualquer outra coisa -> erro sintatico.
     throw ErroSintatico(
         "esperava uma expressao (numero ou '('), mas encontrou " +
         token_type_to_string(tok.get_tipo()) + " (\"" + tok.get_lexema() +
         "\") na posicao " + std::to_string(tok.get_posicao()));
 }
 
-// <operador> ::= '+' | '-' | '*' | '/'
 Operador Parser::analisaOperador() {
     const Token& tok = atual();
     switch (tok.get_tipo()) {
@@ -79,10 +73,8 @@ Operador Parser::analisaOperador() {
     }
 }
 
-// <programa> ::= <expressao>
 std::unique_ptr<Exp> Parser::analisar() {
     std::unique_ptr<Exp> arvore = analisaExp();
-    // Apos a expressao, so pode haver o fim da entrada.
     consumir(TokenType::FIM, "ao final do programa");
     return arvore;
 }

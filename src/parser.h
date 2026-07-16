@@ -23,8 +23,10 @@ private:
 
     Token consumir(TokenType tipo, const std::string& contexto);
 
-    std::unique_ptr<Exp> analisaExp();
-    Operador analisaOperador();
+    // um não-terminal por nível de precedência (gramática EC2)
+    std::unique_ptr<Exp> analisaExpA();   // <exp_a>: adição e subtração
+    std::unique_ptr<Exp> analisaExpM();   // <exp_m>: multiplicação e divisão
+    std::unique_ptr<Exp> analisaPrim();   // <prim>:  <num> | '(' <exp_a> ')'
 
 public:
     explicit Parser(std::vector<Token> tokens);

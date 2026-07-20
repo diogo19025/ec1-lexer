@@ -20,6 +20,9 @@ std::size_t Token::get_posicao() const {
 std::string token_type_to_string(TokenType tipo) {
     switch (tipo) {
         case TokenType::LITERAL: return "Numero";
+        case TokenType::IDENTIFICADOR: return "Identificador";
+        case TokenType::IGUAL: return "Igual";
+        case TokenType::PONTO_VIRGULA: return "PontoVirgula";
         case TokenType::PAREN_ESQ: return "ParenEsq";
         case TokenType::PAREN_DIR: return "ParenDir";
         case TokenType::SOMA: return "Soma";

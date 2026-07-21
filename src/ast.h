@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <vector>
 
 enum class Operador { SOMA, SUB, MULT, DIV };
 
@@ -38,6 +39,21 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// nó folha: uso de variável pelo nome
+class Var : public Exp {
+private:
+    std::string nome;
+public:
+    explicit Var(std::string nome);
+    const std::string& get_nome() const;
+
+    // a avaliação de variáveis depende de um ambiente de valores,
+    // que será introduzido em etapa posterior; por ora lança erro
+    long long avaliar() const override;
+    std::string imprimir() const override;
+    void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
 // nó interno: operação binária (esq OP dir)
 class OpBin : public Exp {
 private:
@@ -55,6 +71,43 @@ public:
     long long avaliar() const override;
     std::string imprimir() const override;
     void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
+// declaração de variável: <ident> '=' <exp> ';'
+// não é uma expressão (não tem valor), por isso não deriva de Exp
+class Decl {
+private:
+    std::string nome;
+    std::unique_ptr<Exp> valor;
+public:
+    Decl(std::string nome, std::unique_ptr<Exp> valor);
+
+    const std::string& get_nome()  const;
+    const Exp&         get_valor() const;
+
+    // declaração como string no formato da gramática
+    std::string imprimir() const;
+
+    // imprime a subárvore da declaração com indentação visual
+    void imprimir_arvore(std::ostream& os, int nivel = 0) const;
+};
+
+// programa: zero ou mais declarações seguidas da expressão final
+class Programa {
+private:
+    std::vector<Decl> decls;
+    std::unique_ptr<Exp> exp;
+public:
+    Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp);
+
+    const std::vector<Decl>& get_decls() const;
+    const Exp&               get_exp()   const;
+
+    // programa como string, uma declaração por linha e a expressão ao final
+    std::string imprimir() const;
+
+    // imprime a árvore completa do programa com indentação visual
+    void imprimir_arvore(std::ostream& os, int nivel = 0) const;
 };
 
 #endif

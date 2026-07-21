@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "codegen.h"
+#include "semantica.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -15,8 +16,9 @@ static std::string nome_saida(const std::string& entrada) {
     return entrada.substr(0, ponto) + ".s";
 }
 
-// lê o texto e constrói a AST; lança ErroSintatico em caso de erro
-static std::unique_ptr<Exp> construir_arvore(const std::string& texto) {
+// lê o texto e constrói a AST (agora um Programa: declarações + expressão
+// final, linguagem EV); lança ErroSintatico ou ErroSemantico em caso de erro
+static std::unique_ptr<Programa> construir_arvore(const std::string& texto) {
     Lexer lex(texto);
     std::vector<Token> tokens;
     while (true) {
@@ -40,7 +42,7 @@ static int modo_compilar(const std::string& caminho) {
     buf << arq.rdbuf();
 
     try {
-        std::unique_ptr<Exp> arvore = construir_arvore(buf.str());
+        std::unique_ptr<Programa> arvore = construir_arvore(buf.str());
 
         std::string saida = nome_saida(caminho);
         std::ofstream out(saida);
@@ -52,6 +54,9 @@ static int modo_compilar(const std::string& caminho) {
         std::cerr << "Assembly gerado: " << saida << "\n";
     } catch (const ErroSintatico& e) {
         std::cerr << "Erro de sintaxe: " << e.what() << "\n";
+        return 1;
+    } catch (const ErroSemantico& e) {
+        std::cerr << "Erro semantico: " << e.what() << "\n";
         return 1;
     } catch (const std::exception& e) {
         std::cerr << "Erro: " << e.what() << "\n";
@@ -78,14 +83,27 @@ static int modo_analisar(const std::string& caminho) {
         std::cout << t << "\n";
 
     try {
-        std::unique_ptr<Exp> arvore = construir_arvore(entrada);
+        std::unique_ptr<Programa> arvore = construir_arvore(entrada);
 
         std::cout << "\nArvore (linear): " << arvore->imprimir() << "\n";
         std::cout << "Arvore (visual):\n";
         arvore->imprimir_arvore(std::cout, 1);
-        std::cout << "Valor: " << arvore->avaliar() << "\n";
+
+        // a interpretacao direta (avaliar) so existe para expressoes sem
+        // variaveis: Var::avaliar() lanca erro, pois nao ha um ambiente de
+        // valores nesta etapa (a avaliacao de programas com variaveis e
+        // feita gerando e executando o assembly, com --compilar).
+        if (arvore->get_decls().empty()) {
+            std::cout << "Valor: " << arvore->get_exp().avaliar() << "\n";
+        } else {
+            std::cout << "(programa usa variaveis; use --compilar para "
+                       << "gerar e executar o assembly)\n";
+        }
     } catch (const ErroSintatico& e) {
         std::cerr << "Erro de sintaxe: " << e.what() << "\n";
+        return 1;
+    } catch (const ErroSemantico& e) {
+        std::cerr << "Erro semantico: " << e.what() << "\n";
         return 1;
     } catch (const std::exception& e) {
         std::cerr << "Erro: " << e.what() << "\n";

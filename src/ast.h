@@ -72,4 +72,23 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// declaração de variável: <ident> '=' <exp> ';'
+// não é uma expressão (não tem valor), por isso não deriva de Exp
+class Decl {
+private:
+    std::string nome;
+    std::unique_ptr<Exp> valor;
+public:
+    Decl(std::string nome, std::unique_ptr<Exp> valor);
+
+    const std::string& get_nome()  const;
+    const Exp&         get_valor() const;
+
+    // declaração como string no formato da gramática
+    std::string imprimir() const;
+
+    // imprime a subárvore da declaração com indentação visual
+    void imprimir_arvore(std::ostream& os, int nivel = 0) const;
+};
+
 #endif

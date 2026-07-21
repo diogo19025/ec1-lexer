@@ -77,3 +77,21 @@ void OpBin::imprimir_arvore(std::ostream& os, int nivel) const {
     esq->imprimir_arvore(os, nivel + 1);
     dir->imprimir_arvore(os, nivel + 1);
 }
+
+// Decl
+
+Decl::Decl(std::string nome, std::unique_ptr<Exp> valor)
+    : nome(std::move(nome)), valor(std::move(valor)) {}
+
+const std::string& Decl::get_nome()  const { return nome; }
+const Exp&         Decl::get_valor() const { return *valor; }
+
+std::string Decl::imprimir() const {
+    return nome + " = " + valor->imprimir() + ";";
+}
+
+void Decl::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "=\n";
+    os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << nome << "\n";
+    valor->imprimir_arvore(os, nivel + 1);
+}

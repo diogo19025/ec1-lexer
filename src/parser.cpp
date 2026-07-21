@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "semantica.h"
 
 ErroSintatico::ErroSintatico(const std::string& msg)
     : std::runtime_error(msg) {}
@@ -28,10 +29,20 @@ Token Parser::consumir(TokenType tipo, const std::string& contexto) {
     return avancar();
 }
 
-// <exp_a> ::= <exp_m> (('+' | '-') <exp_m>)*
+// <decl> ::= <ident> '=' <exp> ';'
+Decl Parser::analisaDecl() {
+    Token nomeTok = consumir(TokenType::IDENTIFICADOR,
+                              "como nome de variavel no inicio da declaracao");
+    consumir(TokenType::IGUAL, "apos o nome da variavel na declaracao");
+    std::unique_ptr<Exp> valor = analisaExp();
+    consumir(TokenType::PONTO_VIRGULA, "ao final da declaracao");
+    return Decl(nomeTok.get_lexema(), std::move(valor));
+}
+
+// <exp> ::= <exp_m> (('+' | '-') <exp_m>)*
 // Operadores associativos à esquerda: o resultado parcial vira o operando
 // esquerdo do próximo operador (constrói a árvore da esquerda para a direita).
-std::unique_ptr<Exp> Parser::analisaExpA() {
+std::unique_ptr<Exp> Parser::analisaExp() {
     std::unique_ptr<Exp> esq = analisaExpM();
 
     while (atual().get_tipo() == TokenType::SOMA ||
@@ -60,7 +71,7 @@ std::unique_ptr<Exp> Parser::analisaExpM() {
     return esq;
 }
 
-// <prim> ::= <num> | '(' <exp_a> ')'
+// <prim> ::= <num> | <ident> | '(' <exp> ')'
 std::unique_ptr<Exp> Parser::analisaPrim() {
     const Token& tok = atual();
 
@@ -76,21 +87,47 @@ std::unique_ptr<Exp> Parser::analisaPrim() {
         }
     }
 
+    // referencia a uma variavel: nao verificamos aqui se ela foi
+    // declarada, isso e responsabilidade da analise semantica
+    if (tok.get_tipo() == TokenType::IDENTIFICADOR) {
+        avancar();
+        return std::make_unique<Var>(tok.get_lexema());
+    }
+
     if (tok.get_tipo() == TokenType::PAREN_ESQ) {
         avancar();
-        std::unique_ptr<Exp> interna = analisaExpA();
+        std::unique_ptr<Exp> interna = analisaExp();
         consumir(TokenType::PAREN_DIR, "para fechar a expressao");
         return interna;
     }
 
     throw ErroSintatico(
-        "esperava uma expressao (numero ou '('), mas encontrou " +
+        "esperava uma expressao (numero, variavel ou '('), mas encontrou " +
         token_type_to_string(tok.get_tipo()) + " (\"" + tok.get_lexema() +
         "\") na posicao " + std::to_string(tok.get_posicao()));
 }
 
-std::unique_ptr<Exp> Parser::analisar() {
-    std::unique_ptr<Exp> arvore = analisaExpA();
+// <programa> ::= <decl>* <result>
+// <result>   ::= '=' <exp>
+//
+// olha o proximo token: enquanto for um identificador, reconhece mais uma
+// declaracao; quando encontrar o '=', reconhece a expressao final.
+std::unique_ptr<Programa> Parser::analisar() {
+    std::vector<Decl> decls;
+
+    while (atual().get_tipo() == TokenType::IDENTIFICADOR)
+        decls.push_back(analisaDecl());
+
+    consumir(TokenType::IGUAL, "para iniciar a expressao final do programa");
+    std::unique_ptr<Exp> expFinal = analisaExp();
     consumir(TokenType::FIM, "ao final do programa");
-    return arvore;
+
+    auto programa = std::make_unique<Programa>(std::move(decls), std::move(expFinal));
+
+    // analise semantica: verifica se toda variavel usada (nas declaracoes
+    // e na expressao final) foi declarada antes de seu uso. Lanca
+    // ErroSemantico em caso de variavel nao declarada.
+    verificar_variaveis(*programa);
+
+    return programa;
 }

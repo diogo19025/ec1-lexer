@@ -38,6 +38,21 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// nó folha: uso de variável pelo nome
+class Var : public Exp {
+private:
+    std::string nome;
+public:
+    explicit Var(std::string nome);
+    const std::string& get_nome() const;
+
+    // a avaliação de variáveis depende de um ambiente de valores,
+    // que será introduzido em etapa posterior; por ora lança erro
+    long long avaliar() const override;
+    std::string imprimir() const override;
+    void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
 // nó interno: operação binária (esq OP dir)
 class OpBin : public Exp {
 private:

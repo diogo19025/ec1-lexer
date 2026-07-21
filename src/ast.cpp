@@ -25,6 +25,23 @@ void Const::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << valor << "\n";
 }
 
+// Var
+
+Var::Var(std::string nome) : nome(std::move(nome)) {}
+
+const std::string& Var::get_nome() const { return nome; }
+
+long long Var::avaliar() const {
+    throw std::runtime_error("variavel '" + nome
+        + "' nao pode ser avaliada sem um ambiente de valores");
+}
+
+std::string Var::imprimir() const { return nome; }
+
+void Var::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << nome << "\n";
+}
+
 // OpBin
 
 OpBin::OpBin(Operador op, std::unique_ptr<Exp> esq, std::unique_ptr<Exp> dir)

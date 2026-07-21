@@ -19,8 +19,26 @@ Token Lexer::ler_numero() {
     // consome enquanto for dígito
     while (pos < entrada.size() && std::isdigit((unsigned char)entrada[pos]))
         ++pos;
+
+    // Uma sequência alfanumérica iniciada por dígito não pode ser
+    // dividida entre um número e um identificador: ela inteira é inválida.
+    if (pos < entrada.size() && std::isalpha((unsigned char)entrada[pos])) {
+        while (pos < entrada.size() && std::isalnum((unsigned char)entrada[pos]))
+            ++pos;
+        return Token(TokenType::INVALIDO,
+                     entrada.substr(inicio, pos - inicio), inicio);
+    }
+
     std::string lexema = entrada.substr(inicio, pos - inicio);
     return Token(TokenType::LITERAL, lexema, inicio);
+}
+
+Token Lexer::ler_identificador() {
+    std::size_t inicio = pos;
+    while (pos < entrada.size() && std::isalnum((unsigned char)entrada[pos]))
+        ++pos;
+    return Token(TokenType::IDENTIFICADOR,
+                 entrada.substr(inicio, pos - inicio), inicio);
 }
 
 // interface
@@ -38,6 +56,10 @@ Token Lexer::proximo_token() {
     if (std::isdigit((unsigned char)c))
         return ler_numero();
 
+    // identificador: letra seguida de zero ou mais letras ou dígitos
+    if (std::isalpha((unsigned char)c))
+        return ler_identificador();
+
     // símbolo de um único caractere
     std::size_t pos_atual = pos;
     ++pos;
@@ -49,6 +71,8 @@ Token Lexer::proximo_token() {
         case '-': return Token(TokenType::SUB,        "-", pos_atual);
         case '*': return Token(TokenType::MULT,       "*", pos_atual);
         case '/': return Token(TokenType::DIV,        "/", pos_atual);
+        case '=': return Token(TokenType::IGUAL,      "=", pos_atual);
+        case ';': return Token(TokenType::PONTO_VIRGULA, ";", pos_atual);
         default:
             // caractere fora do alfabeto da linguagem = erro léxico
             return Token(TokenType::INVALIDO, std::string(1, c), pos_atual);

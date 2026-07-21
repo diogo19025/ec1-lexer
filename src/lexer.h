@@ -13,8 +13,11 @@ private:
     // pula espaços em branco (espaço, tab, \n, \r)
     void pular_espacos();
 
-    // lê todos os dígitos a partir de pos e devolve um Token LITERAL
+    // lê um número; sequências alfanuméricas iniciadas por dígito são inválidas
     Token ler_numero();
+
+    // lê uma letra seguida de zero ou mais letras ou dígitos
+    Token ler_identificador();
 
 public:
     explicit Lexer(std::string entrada);

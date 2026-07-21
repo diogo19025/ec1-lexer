@@ -7,6 +7,9 @@
 
 enum class TokenType {
     LITERAL,
+    IDENTIFICADOR,
+    IGUAL,
+    PONTO_VIRGULA,
     PAREN_ESQ,
     PAREN_DIR,
     SOMA,

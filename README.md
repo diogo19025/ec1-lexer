@@ -183,9 +183,9 @@ make test        # analise/interpretacao (05) + precedencia (07) + lexico EV + p
 make test-ec2    # apenas Atividade 07
 make test-sin    # apenas Atividade 05
 make test-cod    # geracao de codigo EC1/EC2 (Atividade 06) — requer Linux com as/ld
-make test-lex-ev    # analise lexica da linguagem EV (Atividade 08 — Pessoa 1)
-make test-parser-ev # parser + analise semantica da EV (Atividade 08 — Pessoa 3)
-make test-cod-ev    # geracao de codigo da EV com variaveis (Atividade 08 — Pessoa 4) — requer Linux com as/ld
+make test-lex-ev    # analise lexica da linguagem EV (Atividade 08)
+make test-parser-ev # parser + analise semantica da EV (Atividade 08)
+make test-cod-ev    # geracao de codigo da EV com variaveis (Atividade 08) — requer Linux com as/ld
 ```
 
 ### Atividade 07 — precedência e associatividade
@@ -220,15 +220,6 @@ Atividades 04 e 05.
 sintaxe (`sin/e1..e7.ec1`), que devem ser corretamente rejeitados.
 
 ### Atividade 08 — variáveis (EV)
-
-O trabalho foi dividido em quatro partes, cada uma em uma branch própria:
-
-| Parte | Responsável | O que foi feito |
-|---|---|---|
-| Lexer e tokens | Pessoa 1 | tokens `IDENTIFICADOR`, `IGUAL`, `PONTO_VIRGULA`; testes em `tests/lexer_ev_test.cpp` |
-| AST | Pessoa 2 | nós `Var`, `Decl`, `Programa` em `src/ast.*`, com impressão linear e em árvore |
-| Parser e semântica | Pessoa 3 | `Parser::analisar()` reconhece `<programa>` e chama `verificar_variaveis` (`src/semantica.*`), que detecta variáveis usadas antes de declaradas |
-| Geração de código e integração | Pessoa 4 | seção `.bss` para as variáveis, código de cada declaração e da expressão final (`src/codegen.*`), integração no `main.cpp`, testes finais (`tests/ev/`, `scripts/run_tests_ev.sh`) e este README |
 
 `scripts/run_tests_ev.sh` compila cada programa em `tests/ev/v*.ec1` com
 `--compilar`, monta, linka e executa, comparando o resultado com o valor

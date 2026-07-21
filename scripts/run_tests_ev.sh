@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Testes de geração de código para a linguagem EV (Atividade 08 — Pessoa 4).
+# Testes de geração de código para a linguagem EV (Atividade 08).
 # Compila cada programa .ec1 (com --compilar), monta, linka, executa e
 # compara a saída com o valor esperado. Também verifica que programas com
 # variáveis não declaradas são rejeitados pela análise semântica.

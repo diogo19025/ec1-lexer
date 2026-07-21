@@ -95,3 +95,26 @@ void Decl::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << nome << "\n";
     valor->imprimir_arvore(os, nivel + 1);
 }
+
+// Programa
+
+Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp)
+    : decls(std::move(decls)), exp(std::move(exp)) {}
+
+const std::vector<Decl>& Programa::get_decls() const { return decls; }
+const Exp&               Programa::get_exp()   const { return *exp; }
+
+std::string Programa::imprimir() const {
+    std::string saida;
+    for (const Decl& d : decls)
+        saida += d.imprimir() + "\n";
+    saida += exp->imprimir();
+    return saida;
+}
+
+void Programa::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "programa\n";
+    for (const Decl& d : decls)
+        d.imprimir_arvore(os, nivel + 1);
+    exp->imprimir_arvore(os, nivel + 1);
+}

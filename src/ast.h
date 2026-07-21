@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <vector>
 
 enum class Operador { SOMA, SUB, MULT, DIV };
 
@@ -88,6 +89,24 @@ public:
     std::string imprimir() const;
 
     // imprime a subárvore da declaração com indentação visual
+    void imprimir_arvore(std::ostream& os, int nivel = 0) const;
+};
+
+// programa: zero ou mais declarações seguidas da expressão final
+class Programa {
+private:
+    std::vector<Decl> decls;
+    std::unique_ptr<Exp> exp;
+public:
+    Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp);
+
+    const std::vector<Decl>& get_decls() const;
+    const Exp&               get_exp()   const;
+
+    // programa como string, uma declaração por linha e a expressão ao final
+    std::string imprimir() const;
+
+    // imprime a árvore completa do programa com indentação visual
     void imprimir_arvore(std::ostream& os, int nivel = 0) const;
 };
 

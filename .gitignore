@@ -12,3 +12,4 @@ tests/cod/*
 !tests/cod/*.ec1
 tests/ev/*
 !tests/ev/*.ec1
+/.claude

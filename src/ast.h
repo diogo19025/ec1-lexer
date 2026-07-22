@@ -6,7 +6,7 @@
 #include <ostream>
 #include <vector>
 
-enum class Operador { SOMA, SUB, MULT, DIV };
+enum class Operador { SOMA, SUB, MULT, DIV, MENOR, MAIOR, IGUALDADE };
 
 // converte operador para o símbolo correspondente
 std::string operador_para_string(Operador op);

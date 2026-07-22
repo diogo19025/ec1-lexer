@@ -1,5 +1,6 @@
 #include "codegen.h"
 #include "ast.h"
+#include <stdexcept>
 
 // percorre a árvore recursivamente emitindo instruções assembly
 static void gerar_rec(const Exp& no, std::ostream& os) {
@@ -42,6 +43,15 @@ static void gerar_rec(const Exp& no, std::ostream& os) {
                 os << "    cqo\n";
                 os << "    idiv %rcx\n";
                 break;
+            case Operador::MENOR:
+            case Operador::MAIOR:
+            case Operador::IGUALDADE:
+                // a geracao de codigo dos operadores relacionais e da
+                // parte 4 da Atividade 09
+                throw std::runtime_error(
+                    "geracao de codigo para o operador '"
+                    + operador_para_string(op->get_op())
+                    + "' ainda nao implementada (parte 4 da Atividade 09)");
         }
         return;
     }

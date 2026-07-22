@@ -7,6 +7,9 @@ std::string operador_para_string(Operador op) {
         case Operador::SUB:  return "-";
         case Operador::MULT: return "*";
         case Operador::DIV:  return "/";
+        case Operador::MENOR:     return "<";
+        case Operador::MAIOR:     return ">";
+        case Operador::IGUALDADE: return "==";
         default:             return "?";
     }
 }
@@ -62,6 +65,11 @@ long long OpBin::avaliar() const {
             if (b == 0)
                 throw std::runtime_error("divisao por zero durante a interpretacao");
             return a / b;
+        // comparacoes nao tem tipo booleano na linguagem: o resultado e o
+        // inteiro 1 (verdadeiro) ou 0 (falso)
+        case Operador::MENOR:     return (a < b)  ? 1 : 0;
+        case Operador::MAIOR:     return (a > b)  ? 1 : 0;
+        case Operador::IGUALDADE: return (a == b) ? 1 : 0;
     }
     throw std::runtime_error("operador desconhecido");
 }

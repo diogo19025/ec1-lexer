@@ -188,16 +188,23 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
-// programa: zero ou mais declarações seguidas da expressão final
+// programa: zero ou mais declarações seguidas
+//  - da expressão final ('=' <exp>, forma EV das atividades anteriores), ou
+//  - de um corpo de comandos entre chaves (forma Cmd da Atividade 09)
+// exatamente um dos dois (exp ou corpo) é não-nulo
 class Programa {
 private:
     std::vector<Decl> decls;
-    std::unique_ptr<Exp> exp;
+    std::unique_ptr<Exp> exp;      // forma EV  (nulo na forma Cmd)
+    std::unique_ptr<Bloco> corpo;  // forma Cmd (nulo na forma EV)
 public:
     Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp);
+    Programa(std::vector<Decl> decls, std::unique_ptr<Bloco> corpo);
 
     const std::vector<Decl>& get_decls() const;
-    const Exp&               get_exp()   const;
+    const Exp&               get_exp()   const;  // só na forma EV
+    bool                     tem_corpo() const;
+    const Bloco&             get_corpo() const;  // só na forma Cmd
 
     // programa como string, uma declaração por linha e a expressão ao final
     std::string imprimir() const;

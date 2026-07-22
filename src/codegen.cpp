@@ -85,6 +85,13 @@ static void gerar_decl(const Decl& decl, std::ostream& os) {
 }
 
 void gerar_codigo(const Programa& programa, std::ostream& os) {
+    // a geracao de codigo dos comandos (corpo entre chaves) e da
+    // parte 4 da Atividade 09
+    if (programa.tem_corpo())
+        throw std::runtime_error(
+            "geracao de codigo para programas com comandos ainda nao "
+            "implementada (parte 4 da Atividade 09)");
+
     // 1) código de cada declaração, na ordem em que aparecem no fonte
     for (const Decl& decl : programa.get_decls())
         gerar_decl(decl, os);

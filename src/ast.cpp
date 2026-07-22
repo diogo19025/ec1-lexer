@@ -213,16 +213,21 @@ void While::imprimir_arvore(std::ostream& os, int nivel) const {
 // Programa
 
 Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp)
-    : decls(std::move(decls)), exp(std::move(exp)) {}
+    : decls(std::move(decls)), exp(std::move(exp)), corpo(nullptr) {}
+
+Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Bloco> corpo)
+    : decls(std::move(decls)), exp(nullptr), corpo(std::move(corpo)) {}
 
 const std::vector<Decl>& Programa::get_decls() const { return decls; }
 const Exp&               Programa::get_exp()   const { return *exp; }
+bool                     Programa::tem_corpo() const { return corpo != nullptr; }
+const Bloco&             Programa::get_corpo() const { return *corpo; }
 
 std::string Programa::imprimir() const {
     std::string saida;
     for (const Decl& d : decls)
         saida += d.imprimir() + "\n";
-    saida += exp->imprimir();
+    saida += corpo ? corpo->imprimir() : exp->imprimir();
     return saida;
 }
 
@@ -230,5 +235,8 @@ void Programa::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "programa\n";
     for (const Decl& d : decls)
         d.imprimir_arvore(os, nivel + 1);
-    exp->imprimir_arvore(os, nivel + 1);
+    if (corpo)
+        corpo->imprimir_arvore(os, nivel + 1);
+    else
+        exp->imprimir_arvore(os, nivel + 1);
 }

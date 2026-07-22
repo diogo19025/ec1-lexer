@@ -39,10 +39,31 @@ Decl Parser::analisaDecl() {
     return Decl(nomeTok.get_lexema(), std::move(valor));
 }
 
-// <exp> ::= <exp_m> (('+' | '-') <exp_m>)*
+// <exp> ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
+// Nível de menor precedência: as comparações agrupam depois de + - * /.
+std::unique_ptr<Exp> Parser::analisaExp() {
+    std::unique_ptr<Exp> esq = analisaExpA();
+
+    while (atual().get_tipo() == TokenType::MENOR ||
+           atual().get_tipo() == TokenType::MAIOR ||
+           atual().get_tipo() == TokenType::IGUALDADE) {
+        Operador op;
+        switch (atual().get_tipo()) {
+            case TokenType::MENOR: op = Operador::MENOR;     break;
+            case TokenType::MAIOR: op = Operador::MAIOR;     break;
+            default:               op = Operador::IGUALDADE; break;
+        }
+        avancar();                                   // consome o operador
+        std::unique_ptr<Exp> dir = analisaExpA();
+        esq = std::make_unique<OpBin>(op, std::move(esq), std::move(dir));
+    }
+    return esq;
+}
+
+// <exp_a> ::= <exp_m> (('+' | '-') <exp_m>)*
 // Operadores associativos à esquerda: o resultado parcial vira o operando
 // esquerdo do próximo operador (constrói a árvore da esquerda para a direita).
-std::unique_ptr<Exp> Parser::analisaExp() {
+std::unique_ptr<Exp> Parser::analisaExpA() {
     std::unique_ptr<Exp> esq = analisaExpM();
 
     while (atual().get_tipo() == TokenType::SOMA ||

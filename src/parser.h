@@ -23,15 +23,34 @@ private:
 
     Token consumir(TokenType tipo, const std::string& contexto);
 
-    // gramatica EV (Expressoes com Variaveis):
-    //   <programa> ::= <decl>* <result>
+    // gramatica dos comandos (Atividade 09, linguagem Cmd):
+    //   <programa> ::= <decl>* ( '=' <exp> | <bloco> )
     //   <decl>     ::= <ident> '=' <exp> ';'
-    //   <result>   ::= '=' <exp>
-    //   <exp>      ::= <exp_m> (('+' | '-') <exp_m>)*
-    //   <exp_m>    ::= <prim> (('*' | '/') <prim>)*
+    //   <bloco>    ::= '{' <cmd>* '}'
+    //   <cmd>      ::= <atrib> | <if> | <while> | <retorno> | <bloco>
+    //   <atrib>    ::= <ident> '=' <exp> ';'
+    //   <if>       ::= 'if' '(' <exp> ')' <bloco> ('else' <bloco>)?
+    //   <while>    ::= 'while' '(' <exp> ')' <bloco>
+    //   <retorno>  ::= 'return' <exp> ';'
+    // a forma "'=' <exp>" e a expressao final da linguagem EV (atividades
+    // anteriores), mantida para os programas antigos continuarem validos.
+    std::unique_ptr<Bloco> analisaBloco();       // <bloco>
+    std::unique_ptr<Cmd>   analisaCmd();         // <cmd>
+    std::unique_ptr<Cmd>   analisaAtribuicao();  // <atrib>
+    std::unique_ptr<Cmd>   analisaIf();          // <if>
+    std::unique_ptr<Cmd>   analisaWhile();       // <while>
+    std::unique_ptr<Cmd>   analisaRetorno();     // <retorno>
+
+    // gramatica das expressoes (Atividade 09, linguagem Cmd):
+    //   <exp>      ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
+    //   <exp_a>    ::= <exp_m> (('+' | '-') <exp_m>)*
+    //   <exp_m>    ::= <prim>  (('*' | '/') <prim>)*
     //   <prim>     ::= <num> | <ident> | '(' <exp> ')'
-    Decl analisaDecl();                  // <decl>
-    std::unique_ptr<Exp> analisaExp();   // <exp>:   adicao e subtracao
+    // os operadores relacionais tem a menor precedencia: em "a + 1 < b * 2"
+    // os dois lados sao agrupados antes da comparacao.
+    Decl analisaDecl();                  // <decl> ::= <ident> '=' <exp> ';'
+    std::unique_ptr<Exp> analisaExp();   // <exp>:   comparacoes (<, >, ==)
+    std::unique_ptr<Exp> analisaExpA();  // <exp_a>: adicao e subtracao
     std::unique_ptr<Exp> analisaExpM();  // <exp_m>: multiplicacao e divisao
     std::unique_ptr<Exp> analisaPrim();  // <prim>:  <num> | <ident> | '(' <exp> ')'
 

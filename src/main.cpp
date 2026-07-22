@@ -93,7 +93,10 @@ static int modo_analisar(const std::string& caminho) {
         // variaveis: Var::avaliar() lanca erro, pois nao ha um ambiente de
         // valores nesta etapa (a avaliacao de programas com variaveis e
         // feita gerando e executando o assembly, com --compilar).
-        if (arvore->get_decls().empty()) {
+        if (arvore->tem_corpo()) {
+            std::cout << "(programa com comandos; interpretacao e geracao "
+                       << "de codigo virao nas partes 3 e 4 da Atividade 09)\n";
+        } else if (arvore->get_decls().empty()) {
             std::cout << "Valor: " << arvore->get_exp().avaliar() << "\n";
         } else {
             std::cout << "(programa usa variaveis; use --compilar para "

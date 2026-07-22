@@ -23,6 +23,24 @@ private:
 
     Token consumir(TokenType tipo, const std::string& contexto);
 
+    // gramatica dos comandos (Atividade 09, linguagem Cmd):
+    //   <programa> ::= <decl>* ( '=' <exp> | <bloco> )
+    //   <decl>     ::= <ident> '=' <exp> ';'
+    //   <bloco>    ::= '{' <cmd>* '}'
+    //   <cmd>      ::= <atrib> | <if> | <while> | <retorno> | <bloco>
+    //   <atrib>    ::= <ident> '=' <exp> ';'
+    //   <if>       ::= 'if' '(' <exp> ')' <bloco> ('else' <bloco>)?
+    //   <while>    ::= 'while' '(' <exp> ')' <bloco>
+    //   <retorno>  ::= 'return' <exp> ';'
+    // a forma "'=' <exp>" e a expressao final da linguagem EV (atividades
+    // anteriores), mantida para os programas antigos continuarem validos.
+    std::unique_ptr<Bloco> analisaBloco();       // <bloco>
+    std::unique_ptr<Cmd>   analisaCmd();         // <cmd>
+    std::unique_ptr<Cmd>   analisaAtribuicao();  // <atrib>
+    std::unique_ptr<Cmd>   analisaIf();          // <if>
+    std::unique_ptr<Cmd>   analisaWhile();       // <while>
+    std::unique_ptr<Cmd>   analisaRetorno();     // <retorno>
+
     // gramatica das expressoes (Atividade 09, linguagem Cmd):
     //   <exp>      ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
     //   <exp_a>    ::= <exp_m> (('+' | '-') <exp_m>)*

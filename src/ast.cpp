@@ -104,6 +104,112 @@ void Decl::imprimir_arvore(std::ostream& os, int nivel) const {
     valor->imprimir_arvore(os, nivel + 1);
 }
 
+// Atribuicao
+
+Atribuicao::Atribuicao(std::string nome, std::unique_ptr<Exp> valor)
+    : nome(std::move(nome)), valor(std::move(valor)) {}
+
+const std::string& Atribuicao::get_nome()  const { return nome; }
+const Exp&         Atribuicao::get_valor() const { return *valor; }
+
+std::string Atribuicao::imprimir() const {
+    return nome + " = " + valor->imprimir() + ";";
+}
+
+void Atribuicao::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "=\n";
+    os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << nome << "\n";
+    valor->imprimir_arvore(os, nivel + 1);
+}
+
+// Retorno
+
+Retorno::Retorno(std::unique_ptr<Exp> valor) : valor(std::move(valor)) {}
+
+const Exp& Retorno::get_valor() const { return *valor; }
+
+std::string Retorno::imprimir() const {
+    return "return " + valor->imprimir() + ";";
+}
+
+void Retorno::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "return\n";
+    valor->imprimir_arvore(os, nivel + 1);
+}
+
+// Bloco
+
+Bloco::Bloco(std::vector<std::unique_ptr<Cmd>> comandos)
+    : comandos(std::move(comandos)) {}
+
+const std::vector<std::unique_ptr<Cmd>>& Bloco::get_comandos() const {
+    return comandos;
+}
+
+std::string Bloco::imprimir() const {
+    std::string saida = "{";
+    for (const auto& cmd : comandos)
+        saida += " " + cmd->imprimir();
+    saida += " }";
+    return saida;
+}
+
+void Bloco::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "bloco\n";
+    for (const auto& cmd : comandos)
+        cmd->imprimir_arvore(os, nivel + 1);
+}
+
+// If
+
+If::If(std::unique_ptr<Exp> condicao,
+       std::unique_ptr<Bloco> entao,
+       std::unique_ptr<Bloco> senao)
+    : condicao(std::move(condicao)),
+      entao(std::move(entao)),
+      senao(std::move(senao)) {}
+
+const Exp&   If::get_condicao() const { return *condicao; }
+const Bloco& If::get_entao()    const { return *entao; }
+bool         If::tem_senao()    const { return senao != nullptr; }
+const Bloco& If::get_senao()    const { return *senao; }
+
+std::string If::imprimir() const {
+    std::string saida = "if (" + condicao->imprimir() + ") " + entao->imprimir();
+    if (senao)
+        saida += " else " + senao->imprimir();
+    return saida;
+}
+
+void If::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "if\n";
+    condicao->imprimir_arvore(os, nivel + 1);
+    os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << "entao\n";
+    entao->imprimir_arvore(os, nivel + 2);
+    if (senao) {
+        os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << "senao\n";
+        senao->imprimir_arvore(os, nivel + 2);
+    }
+}
+
+// While
+
+While::While(std::unique_ptr<Exp> condicao, std::unique_ptr<Bloco> corpo)
+    : condicao(std::move(condicao)), corpo(std::move(corpo)) {}
+
+const Exp&   While::get_condicao() const { return *condicao; }
+const Bloco& While::get_corpo()    const { return *corpo; }
+
+std::string While::imprimir() const {
+    return "while (" + condicao->imprimir() + ") " + corpo->imprimir();
+}
+
+void While::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "while\n";
+    condicao->imprimir_arvore(os, nivel + 1);
+    corpo->imprimir_arvore(os, nivel + 1);
+}
+
 // Programa
 
 Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp)

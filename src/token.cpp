@@ -22,9 +22,18 @@ std::string token_type_to_string(TokenType tipo) {
         case TokenType::LITERAL: return "Numero";
         case TokenType::IDENTIFICADOR: return "Identificador";
         case TokenType::IGUAL: return "Igual";
+        case TokenType::IGUALDADE: return "Igualdade";
         case TokenType::PONTO_VIRGULA: return "PontoVirgula";
         case TokenType::PAREN_ESQ: return "ParenEsq";
         case TokenType::PAREN_DIR: return "ParenDir";
+        case TokenType::CHAVE_ESQ: return "ChaveEsq";
+        case TokenType::CHAVE_DIR: return "ChaveDir";
+        case TokenType::MENOR: return "Menor";
+        case TokenType::MAIOR: return "Maior";
+        case TokenType::IF: return "If";
+        case TokenType::ELSE: return "Else";
+        case TokenType::WHILE: return "While";
+        case TokenType::RETURN: return "Return";
         case TokenType::SOMA: return "Soma";
         case TokenType::SUB: return "Sub";
         case TokenType::MULT: return "Mult";

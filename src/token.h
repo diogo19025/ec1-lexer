@@ -8,10 +8,19 @@
 enum class TokenType {
     LITERAL,
     IDENTIFICADOR,
-    IGUAL,
+    IGUAL,          // = (declaracao ou atribuicao)
+    IGUALDADE,      // ==
     PONTO_VIRGULA,
     PAREN_ESQ,
     PAREN_DIR,
+    CHAVE_ESQ,
+    CHAVE_DIR,
+    MENOR,
+    MAIOR,
+    IF,
+    ELSE,
+    WHILE,
+    RETURN,
     SOMA,
     SUB,
     MULT,

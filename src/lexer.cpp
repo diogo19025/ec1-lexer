@@ -37,8 +37,19 @@ Token Lexer::ler_identificador() {
     std::size_t inicio = pos;
     while (pos < entrada.size() && std::isalnum((unsigned char)entrada[pos]))
         ++pos;
-    return Token(TokenType::IDENTIFICADOR,
-                 entrada.substr(inicio, pos - inicio), inicio);
+
+    std::string lexema = entrada.substr(inicio, pos - inicio);
+
+    if (lexema == "if")
+        return Token(TokenType::IF, lexema, inicio);
+    if (lexema == "else")
+        return Token(TokenType::ELSE, lexema, inicio);
+    if (lexema == "while")
+        return Token(TokenType::WHILE, lexema, inicio);
+    if (lexema == "return")
+        return Token(TokenType::RETURN, lexema, inicio);
+
+    return Token(TokenType::IDENTIFICADOR, lexema, inicio);
 }
 
 // interface
@@ -67,11 +78,20 @@ Token Lexer::proximo_token() {
     switch (c) {
         case '(': return Token(TokenType::PAREN_ESQ, "(", pos_atual);
         case ')': return Token(TokenType::PAREN_DIR, ")", pos_atual);
+        case '{': return Token(TokenType::CHAVE_ESQ, "{", pos_atual);
+        case '}': return Token(TokenType::CHAVE_DIR, "}", pos_atual);
+        case '<': return Token(TokenType::MENOR,      "<", pos_atual);
+        case '>': return Token(TokenType::MAIOR,      ">", pos_atual);
         case '+': return Token(TokenType::SOMA,      "+", pos_atual);
         case '-': return Token(TokenType::SUB,        "-", pos_atual);
         case '*': return Token(TokenType::MULT,       "*", pos_atual);
         case '/': return Token(TokenType::DIV,        "/", pos_atual);
-        case '=': return Token(TokenType::IGUAL,      "=", pos_atual);
+        case '=':
+            if (pos < entrada.size() && entrada[pos] == '=') {
+                ++pos;
+                return Token(TokenType::IGUALDADE, "==", pos_atual);
+            }
+            return Token(TokenType::IGUAL, "=", pos_atual);
         case ';': return Token(TokenType::PONTO_VIRGULA, ";", pos_atual);
         default:
             // caractere fora do alfabeto da linguagem = erro léxico

@@ -220,9 +220,16 @@ std::unique_ptr<Programa> Parser::analisar() {
         std::unique_ptr<Bloco> corpo = analisaBloco();
         consumir(TokenType::FIM, "ao final do programa");
 
-        // a verificacao das variaveis usadas dentro dos comandos (if,
-        // while, atribuicoes, return) e da parte 3 da Atividade 09
-        return std::make_unique<Programa>(std::move(decls), std::move(corpo));
+        auto programa = std::make_unique<Programa>(std::move(decls), std::move(corpo));
+
+        // analise semantica: verifica se toda variavel usada (nas
+        // declaracoes e nos comandos do corpo — atribuicoes, condicoes de
+        // if/while, return) foi declarada antes de seu uso, e que nenhuma
+        // atribuicao referencia uma variavel nao declarada. Lanca
+        // ErroSemantico em caso de erro.
+        verificar_variaveis(*programa);
+
+        return programa;
     }
 
     consumir(TokenType::IGUAL, "para iniciar a expressao final do programa");

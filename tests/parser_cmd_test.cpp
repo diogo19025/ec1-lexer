@@ -134,7 +134,7 @@ static void teste_while() {
 }
 
 static void teste_bloco_aninhado() {
-    auto programa = parse("{ { x = 1; } return 0; }");
+    auto programa = parse("x = 0; { { x = 1; } return 0; }");
     const auto* interno = dynamic_cast<const Bloco*>(
         programa->get_corpo().get_comandos()[0].get());
     checar(interno != nullptr, "bloco aninhado vira um no Bloco");

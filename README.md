@@ -15,7 +15,7 @@ da Atividade 09 passa a ser a **Cmd**, que adiciona comandos (atribuição,
 | 06 | EC1 | Gerador de código assembly x86-64 (`codegen.*`, `runtime.s`) |
 | 07 | EC2 | **Precedência e associatividade** — expressões sem parênteses obrigatórios (`parser.*`) |
 | 08 | EV | **Variáveis** — declarações, tabela de símbolos e geração de código (`ast.*`, `parser.*`, `semantica.*`, `codegen.*`) |
-| 09 | Cmd | **Comandos** — atribuição, `if`/`else`, `while`, `return`, operadores relacionais (`<`, `>`, `==`) e verificação semântica dos comandos (`token.*`, `ast.*`, `parser.*`, `semantica.*`) |
+| 09 | Cmd | **Comandos** — atribuição, `if`/`else`, `while`, `return`, operadores relacionais (`<`, `>`, `==`), verificação semântica e geração de código dos comandos (`token.*`, `ast.*`, `parser.*`, `semantica.*`, `codegen.*`) |
 
 ## Estrutura do projeto
 
@@ -30,7 +30,8 @@ da Atividade 09 passa a ser a **Cmd**, que adiciona comandos (atribuição,
 │   ├── parser.h / parser.cpp   # analisador descendente recursivo (EV e Cmd)
 │   ├── semantica.h / .cpp      # verificação de variáveis declaradas (tabela de
 │   │                           # símbolos), tanto na forma EV quanto nos comandos da Cmd
-│   ├── codegen.h / codegen.cpp # gerador de código assembly x86-64 (Exp e Programa/EV)
+│   ├── codegen.h / codegen.cpp # gerador de código assembly x86-64 (Exp, Programa/EV e
+│   │                           # comandos/Cmd: atribuição, if/else, while, return)
 │   ├── runtime.s               # sub-rotinas imprime_num e sair
 │   └── main.cpp                # ponto de entrada
 ├── scripts/
@@ -208,6 +209,59 @@ $ ./ec1 tests/cmd/e1_atribuicao_nao_declarada.ec1
 Erro semantico: atribuicao a variavel 'x' que nao foi declarada
 ```
 
+### Geração de código dos comandos
+
+O modo `--compilar` também gera assembly para programas na forma `Cmd`
+(corpo de comandos entre chaves), implementado em `src/codegen.*`:
+
+- **atribuição** (`<ident> '=' <exp> ';'` dentro do corpo) gera o código da
+  expressão do lado direito (resultado em `%rax`) seguido de
+  `mov %rax, <nome>`, exatamente como uma declaração — a diferença é que a
+  variável já existe em `.bss` desde a declaração, a atribuição só
+  sobrescreve o valor;
+- os **operadores relacionais** `<`, `>` e `==` são traduzidos para
+  `cmp` seguido de `setl` / `setg` / `sete` sobre `%al`, estendido para
+  `%rax` com `movzbq`; o resultado é sempre `0` ou `1`, como na
+  interpretação (`OpBin::avaliar`);
+- **`if`/`else`** avalia a condição, compara o resultado com `0` (`cmp $0,
+  %rax`) e usa `je` para desviar: se não houver `else`, desvia direto para
+  o rótulo de fim do `if`; se houver, desvia para o rótulo do `else`, e o
+  fim do bloco `então` pula (`jmp`) o `else` antes de cair no rótulo final;
+- **`while`** funciona de forma parecida: um rótulo marca o início do
+  laço (onde a condição é reavaliada a cada iteração), e `je` desvia para
+  o rótulo de fim assim que a condição for falsa; o final do corpo do
+  laço volta (`jmp`) para o rótulo de início;
+- **`return`** gera o código da expressão (resultado em `%rax`) e desvia
+  (`jmp`) para um rótulo fixo `FIM_PROGRAMA`, comum a todos os `return` do
+  programa (inclusive os que estão dentro de `if`/`while` aninhados); logo
+  depois desse rótulo o compilador emite as chamadas de `imprime_num` e
+  `sair`, então o valor deixado em `%rax` pelo `return` (ou, na ausência de
+  um `return` executado, o que quer que reste em `%rax` ao final do bloco)
+  é o que acaba sendo impresso;
+- os **rótulos** de cada `if` e `while` (`ELSE_N`, `FIM_IF_N`,
+  `WHILE_INICIO_N`, `WHILE_FIM_N`) recebem um número sequencial de um
+  contador global, reiniciado a cada chamada de `gerar_codigo(Programa&,
+  ...)`, garantindo que sejam únicos mesmo com `if`/`while` aninhados ou
+  repetidos no mesmo programa. Como identificadores da linguagem Cmd só
+  podem conter letras e dígitos (nunca `_`), esses rótulos nunca colidem
+  com o nome de uma variável do programa do usuário.
+
+Exemplo — maior de dois números, compilado e executado:
+
+```
+$ ./ec1 --compilar tests/cmd/v1_maior_de_dois.ec1
+Assembly gerado: tests/cmd/v1_maior_de_dois.s
+
+$ as --64 -I src -o tests/cmd/v1_maior_de_dois.o tests/cmd/v1_maior_de_dois.s
+$ ld -o tests/cmd/v1_maior_de_dois tests/cmd/v1_maior_de_dois.o
+$ ./tests/cmd/v1_maior_de_dois
+12
+```
+
+Exemplo — soma de 1 a `n` com `while` (veja a seção anterior para o
+fonte): compilando, montando, linkando e executando da mesma forma, a
+saída é `55` para `n = 10`.
+
 ## Compilar
 
 ```bash
@@ -255,9 +309,10 @@ aqui).
 ### Modo compilador (Atividades 06 e 08)
 
 Gera `<arquivo>.s` com o assembly completo pronto para ser montado — funciona
-tanto para expressões simples (EC1/EC2) quanto para programas com variáveis
-(EV). A geração de código para comandos (`if`, `while`, `Cmd`) ainda não está
-implementada.
+para expressões simples (EC1/EC2), para programas com variáveis (EV) e para
+programas com comandos (`if`, `while`, `return`, atribuição — linguagem
+Cmd, Atividade 09; veja a seção [Geração de código dos
+comandos](#geração-de-código-dos-comandos) acima).
 
 ```bash
 ./ec1 --compilar <arquivo.ec1>
@@ -345,6 +400,12 @@ ambiente Linux x86-64.
   rejeitados com erro semântico (variável não declarada usada em atribuição,
   na condição de `if`/`while`, ou em algum dos ramos do `if`).
   `scripts/run_tests_semantica_cmd.sh` (rodado por `make test-cmd`) roda cada
-  um deles com `./ec1 <arquivo>` (modo de análise, sem `--compilar`, já que a
-  geração de código para a linguagem Cmd é uma etapa posterior) e confere se
-  o resultado (aceito ou erro semântico) é o esperado.
+  um deles com `./ec1 <arquivo>` (modo de análise, sem `--compilar`) e
+  confere se o resultado (aceito ou erro semântico) é o esperado — esse
+  script cobre apenas parser e análise semântica, não a geração de código.
+- a geração de código dos comandos (`--compilar`, veja a seção [Geração de
+  código dos comandos](#geração-de-código-dos-comandos)) pode ser validada
+  manualmente sobre os mesmos programas de `tests/cmd/v*.ec1`: compilar,
+  montar com `as`, linkar com `ld` e executar, comparando a saída com o
+  valor esperado — o mesmo fluxo usado nos exemplos acima e no
+  `scripts/run_tests_ev.sh` da Atividade 08.

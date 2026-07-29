@@ -1,6 +1,18 @@
 #include "codegen.h"
 #include "ast.h"
 #include <stdexcept>
+#include <string>
+
+// contador global de rótulos: cada if e cada while pega um número
+// sequencial único, usado para montar rótulos como "ELSE_0", "FIM_IF_0",
+// "WHILE_INICIO_1", "WHILE_FIM_1" etc. Como identificadores da linguagem
+// Cmd só podem conter letras e dígitos (nunca '_'), rótulos com '_' nunca
+// colidem com o nome de uma variável do programa do usuário.
+static int contador_rotulos = 0;
+
+static std::string novo_rotulo(const std::string& prefixo) {
+    return prefixo + "_" + std::to_string(contador_rotulos++);
+}
 
 // percorre a árvore recursivamente emitindo instruções assembly
 static void gerar_rec(const Exp& no, std::ostream& os) {
@@ -43,15 +55,25 @@ static void gerar_rec(const Exp& no, std::ostream& os) {
                 os << "    cqo\n";
                 os << "    idiv %rcx\n";
                 break;
+            // operadores relacionais: cmp calcula %rax - %rbx (dst - src)
+            // e ajusta as flags; setX grava 0 ou 1 em %al de acordo com a
+            // comparacao (esq OP dir), e movzbq estende esse byte para o
+            // restante de %rax, que e o registrador de resultado
             case Operador::MENOR:
+                os << "    cmp %rbx, %rax\n";
+                os << "    setl %al\n";
+                os << "    movzbq %al, %rax\n";
+                break;
             case Operador::MAIOR:
+                os << "    cmp %rbx, %rax\n";
+                os << "    setg %al\n";
+                os << "    movzbq %al, %rax\n";
+                break;
             case Operador::IGUALDADE:
-                // a geracao de codigo dos operadores relacionais e da
-                // parte 4 da Atividade 09
-                throw std::runtime_error(
-                    "geracao de codigo para o operador '"
-                    + operador_para_string(op->get_op())
-                    + "' ainda nao implementada (parte 4 da Atividade 09)");
+                os << "    cmp %rbx, %rax\n";
+                os << "    sete %al\n";
+                os << "    movzbq %al, %rax\n";
+                break;
         }
         return;
     }
@@ -84,19 +106,120 @@ static void gerar_decl(const Decl& decl, std::ostream& os) {
     os << "    mov %rax, " << decl.get_nome() << "\n";
 }
 
+// declaracao antecipada: Cmd e Bloco sao mutuamente recursivos (um bloco
+// contem comandos, e um comando If/While contem blocos)
+static void gerar_bloco(const Bloco& bloco, std::ostream& os);
+
+// rótulo fixo para onde todo 'return' salta: o valor de retorno já está em
+// %rax quando o salto acontece, e logo após esse rótulo (ao final de
+// gerar_codigo(Programa&, ostream&)) o chamador (gerar_assembly_completo)
+// emite as chamadas a imprime_num/sair, então o fluxo cai exatamente onde
+// precisa, seja por um 'jmp' explícito ou por fall-through natural.
+static const char* ROTULO_FIM_PROGRAMA = "FIM_PROGRAMA";
+
+// gera o código de um único comando, percorrendo a árvore recursivamente
+static void gerar_cmd(const Cmd& cmd, std::ostream& os) {
+    // atribuicao: <ident> '=' <exp> ';' — igual à declaração, mas a
+    // variável já existe (garantido pela análise semântica), então basta
+    // recalcular a expressão e sobrescrever o valor guardado em .bss
+    if (const auto* atrib = dynamic_cast<const Atribuicao*>(&cmd)) {
+        os << "    # " << atrib->get_nome() << " = "
+           << atrib->get_valor().imprimir() << ";\n";
+        gerar_rec(atrib->get_valor(), os);
+        os << "    mov %rax, " << atrib->get_nome() << "\n";
+        return;
+    }
+
+    // return: calcula o valor e desvia para o final do programa, onde o
+    // valor em %rax sera impresso e o processo encerrado
+    if (const auto* ret = dynamic_cast<const Retorno*>(&cmd)) {
+        os << "    # return " << ret->get_valor().imprimir() << ";\n";
+        gerar_rec(ret->get_valor(), os);
+        os << "    jmp " << ROTULO_FIM_PROGRAMA << "\n";
+        return;
+    }
+
+    // bloco aninhado: apenas gera cada comando em sequencia
+    if (const auto* bloco = dynamic_cast<const Bloco*>(&cmd)) {
+        gerar_bloco(*bloco, os);
+        return;
+    }
+
+    // if/else: avalia a condicao; se for falsa (== 0), pula o bloco 'entao'
+    // (indo direto para o 'else', se houver, ou para o fim do if). O
+    // rotulo tem um numero unico (contador_rotulos) para nao colidir com
+    // os rotulos de outros if/while do mesmo programa.
+    if (const auto* no_if = dynamic_cast<const If*>(&cmd)) {
+        std::string rotulo_fim = novo_rotulo("FIM_IF");
+
+        os << "    # if (" << no_if->get_condicao().imprimir() << ")\n";
+        gerar_rec(no_if->get_condicao(), os);
+        os << "    cmp $0, %rax\n";
+
+        if (no_if->tem_senao()) {
+            std::string rotulo_else = novo_rotulo("ELSE");
+            os << "    je " << rotulo_else << "\n";
+            gerar_bloco(no_if->get_entao(), os);
+            os << "    jmp " << rotulo_fim << "\n";
+            os << rotulo_else << ":\n";
+            gerar_bloco(no_if->get_senao(), os);
+        } else {
+            os << "    je " << rotulo_fim << "\n";
+            gerar_bloco(no_if->get_entao(), os);
+        }
+
+        os << rotulo_fim << ":\n";
+        return;
+    }
+
+    // while: reavalia a condicao a cada iteracao; sai do laco assim que
+    // ela for falsa (== 0)
+    if (const auto* no_while = dynamic_cast<const While*>(&cmd)) {
+        std::string rotulo_inicio = novo_rotulo("WHILE_INICIO");
+        std::string rotulo_fim    = novo_rotulo("WHILE_FIM");
+
+        os << rotulo_inicio << ":\n";
+        os << "    # while (" << no_while->get_condicao().imprimir() << ")\n";
+        gerar_rec(no_while->get_condicao(), os);
+        os << "    cmp $0, %rax\n";
+        os << "    je " << rotulo_fim << "\n";
+        gerar_bloco(no_while->get_corpo(), os);
+        os << "    jmp " << rotulo_inicio << "\n";
+        os << rotulo_fim << ":\n";
+        return;
+    }
+}
+
+// gera o codigo de cada comando do bloco, na ordem em que aparecem
+static void gerar_bloco(const Bloco& bloco, std::ostream& os) {
+    for (const auto& cmd : bloco.get_comandos())
+        gerar_cmd(*cmd, os);
+}
+
 void gerar_codigo(const Programa& programa, std::ostream& os) {
-    // a geracao de codigo dos comandos (corpo entre chaves) e da
-    // parte 4 da Atividade 09
-    if (programa.tem_corpo())
-        throw std::runtime_error(
-            "geracao de codigo para programas com comandos ainda nao "
-            "implementada (parte 4 da Atividade 09)");
+    // zera o contador a cada geracao completa, para que rotulos sejam
+    // sempre previsiveis (e reprodutiveis em testes) independentemente de
+    // quantas vezes gerar_codigo/gerar_assembly_completo ja foram chamados
+    // no processo
+    contador_rotulos = 0;
 
     // 1) código de cada declaração, na ordem em que aparecem no fonte
     for (const Decl& decl : programa.get_decls())
         gerar_decl(decl, os);
 
-    // 2) código da expressão final (resultado em %rax)
+    // 2a) forma Cmd: corpo de comandos entre chaves. O rotulo
+    // FIM_PROGRAMA e o ponto de encontro de todos os 'return' (e do
+    // fim natural do bloco, caso nenhum 'return' seja executado); logo
+    // depois dele, gerar_assembly_completo emite as chamadas de
+    // imprime_num/sair usando o valor que estiver em %rax nesse ponto.
+    if (programa.tem_corpo()) {
+        os << "    # corpo de comandos\n";
+        gerar_bloco(programa.get_corpo(), os);
+        os << ROTULO_FIM_PROGRAMA << ":\n";
+        return;
+    }
+
+    // 2b) forma EV: expressão final (resultado em %rax)
     os << "    # expressao final\n";
     gerar_rec(programa.get_exp(), os);
 }

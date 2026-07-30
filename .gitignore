@@ -9,6 +9,10 @@
 /parser_cmd_tests.exe
 /semantica_cmd_tests
 /semantica_cmd_tests.exe
+/lexer_fun_tests
+/lexer_fun_tests.exe
+/parser_fun_tests
+/parser_fun_tests.exe
 
 # artefatos gerados ao compilar programas .ec1 (assembly, objeto, executavel):
 # ignora tudo dentro dessas pastas de teste, exceto os fontes .ec1

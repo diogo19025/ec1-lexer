@@ -28,8 +28,12 @@ std::string token_type_to_string(TokenType tipo) {
         case TokenType::PAREN_DIR: return "ParenDir";
         case TokenType::CHAVE_ESQ: return "ChaveEsq";
         case TokenType::CHAVE_DIR: return "ChaveDir";
+        case TokenType::VIRGULA: return "Virgula";
         case TokenType::MENOR: return "Menor";
         case TokenType::MAIOR: return "Maior";
+        case TokenType::FUN: return "Fun";
+        case TokenType::VAR: return "Var";
+        case TokenType::MAIN: return "Main";
         case TokenType::IF: return "If";
         case TokenType::ELSE: return "Else";
         case TokenType::WHILE: return "While";

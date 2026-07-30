@@ -45,6 +45,43 @@ void Var::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << nome << "\n";
 }
 
+// ChamadaFuncao
+
+ChamadaFuncao::ChamadaFuncao(
+    std::string nome,
+    std::vector<std::unique_ptr<Exp>> argumentos)
+    : nome(std::move(nome)), argumentos(std::move(argumentos)) {}
+
+const std::string& ChamadaFuncao::get_nome() const { return nome; }
+
+const std::vector<std::unique_ptr<Exp>>&
+ChamadaFuncao::get_argumentos() const {
+    return argumentos;
+}
+
+long long ChamadaFuncao::avaliar() const {
+    throw std::runtime_error(
+        "chamada da funcao '" + nome +
+        "' nao pode ser avaliada sem um ambiente de funcoes");
+}
+
+std::string ChamadaFuncao::imprimir() const {
+    std::string saida = nome + "(";
+    for (std::size_t i = 0; i < argumentos.size(); ++i) {
+        if (i != 0)
+            saida += ", ";
+        saida += argumentos[i]->imprimir();
+    }
+    return saida + ")";
+}
+
+void ChamadaFuncao::imprimir_arvore(std::ostream& os, int nivel) const {
+    os << std::string(static_cast<std::size_t>(nivel) * 2, ' ')
+       << "chamada " << nome << "\n";
+    for (const auto& argumento : argumentos)
+        argumento->imprimir_arvore(os, nivel + 1);
+}
+
 // OpBin
 
 OpBin::OpBin(Operador op, std::unique_ptr<Exp> esq, std::unique_ptr<Exp> dir)
@@ -88,14 +125,19 @@ void OpBin::imprimir_arvore(std::ostream& os, int nivel) const {
 
 // Decl
 
-Decl::Decl(std::string nome, std::unique_ptr<Exp> valor)
-    : nome(std::move(nome)), valor(std::move(valor)) {}
+Decl::Decl(std::string nome, std::unique_ptr<Exp> valor,
+           bool usa_palavra_var)
+    : nome(std::move(nome)),
+      valor(std::move(valor)),
+      usa_palavra_var(usa_palavra_var) {}
 
 const std::string& Decl::get_nome()  const { return nome; }
 const Exp&         Decl::get_valor() const { return *valor; }
+bool               Decl::usa_var()   const { return usa_palavra_var; }
 
 std::string Decl::imprimir() const {
-    return nome + " = " + valor->imprimir() + ";";
+    return std::string(usa_palavra_var ? "var " : "") +
+           nome + " = " + valor->imprimir() + ";";
 }
 
 void Decl::imprimir_arvore(std::ostream& os, int nivel) const {
@@ -160,6 +202,56 @@ void Bloco::imprimir_arvore(std::ostream& os, int nivel) const {
         cmd->imprimir_arvore(os, nivel + 1);
 }
 
+// Funcao
+
+Funcao::Funcao(std::string nome,
+               std::vector<std::string> parametros,
+               std::vector<Decl> variaveis_locais,
+               std::unique_ptr<Bloco> corpo)
+    : nome(std::move(nome)),
+      parametros(std::move(parametros)),
+      variaveis_locais(std::move(variaveis_locais)),
+      corpo(std::move(corpo)) {}
+
+const std::string& Funcao::get_nome() const { return nome; }
+
+const std::vector<std::string>& Funcao::get_parametros() const {
+    return parametros;
+}
+
+const std::vector<Decl>& Funcao::get_variaveis_locais() const {
+    return variaveis_locais;
+}
+
+const Bloco& Funcao::get_corpo() const { return *corpo; }
+
+std::string Funcao::imprimir() const {
+    std::string saida = "fun " + nome + "(";
+    for (std::size_t i = 0; i < parametros.size(); ++i) {
+        if (i != 0)
+            saida += ", ";
+        saida += parametros[i];
+    }
+    saida += ") {";
+    for (const Decl& variavel : variaveis_locais)
+        saida += " " + variavel.imprimir();
+    for (const auto& comando : corpo->get_comandos())
+        saida += " " + comando->imprimir();
+    return saida + " }";
+}
+
+void Funcao::imprimir_arvore(std::ostream& os, int nivel) const {
+    const std::string indent(static_cast<std::size_t>(nivel) * 2, ' ');
+    os << indent << "funcao " << nome << "\n";
+    os << indent << "  parametros\n";
+    for (const std::string& parametro : parametros)
+        os << indent << "    " << parametro << "\n";
+    os << indent << "  variaveis locais\n";
+    for (const Decl& variavel : variaveis_locais)
+        variavel.imprimir_arvore(os, nivel + 2);
+    corpo->imprimir_arvore(os, nivel + 1);
+}
+
 // If
 
 If::If(std::unique_ptr<Exp> condicao,
@@ -213,28 +305,81 @@ void While::imprimir_arvore(std::ostream& os, int nivel) const {
 // Programa
 
 Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp)
-    : decls(std::move(decls)), exp(std::move(exp)), corpo(nullptr) {}
+    : decls(std::move(decls)),
+      exp(std::move(exp)),
+      corpo(nullptr),
+      forma_fun(false) {
+    for (std::size_t i = 0; i < this->decls.size(); ++i)
+        ordem_declaracoes.push_back({TipoDeclaracaoTopo::VARIAVEL, i});
+}
 
 Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Bloco> corpo)
-    : decls(std::move(decls)), exp(nullptr), corpo(std::move(corpo)) {}
+    : decls(std::move(decls)),
+      exp(nullptr),
+      corpo(std::move(corpo)),
+      forma_fun(false) {
+    for (std::size_t i = 0; i < this->decls.size(); ++i)
+        ordem_declaracoes.push_back({TipoDeclaracaoTopo::VARIAVEL, i});
+}
+
+Programa::Programa(std::vector<Decl> decls,
+                   std::vector<Funcao> funcoes,
+                   std::vector<DeclaracaoTopo> ordem_declaracoes,
+                   std::unique_ptr<Bloco> corpo)
+    : decls(std::move(decls)),
+      funcoes(std::move(funcoes)),
+      ordem_declaracoes(std::move(ordem_declaracoes)),
+      exp(nullptr),
+      corpo(std::move(corpo)),
+      forma_fun(true) {}
 
 const std::vector<Decl>& Programa::get_decls() const { return decls; }
+const std::vector<Funcao>& Programa::get_funcoes() const { return funcoes; }
+const std::vector<DeclaracaoTopo>&
+Programa::get_ordem_declaracoes() const {
+    return ordem_declaracoes;
+}
 const Exp&               Programa::get_exp()   const { return *exp; }
 bool                     Programa::tem_corpo() const { return corpo != nullptr; }
 const Bloco&             Programa::get_corpo() const { return *corpo; }
+bool                     Programa::eh_fun()    const { return forma_fun; }
 
 std::string Programa::imprimir() const {
     std::string saida;
-    for (const Decl& d : decls)
-        saida += d.imprimir() + "\n";
+    if (forma_fun) {
+        for (const DeclaracaoTopo& declaracao : ordem_declaracoes) {
+            if (declaracao.tipo == TipoDeclaracaoTopo::VARIAVEL)
+                saida += decls[declaracao.indice].imprimir() + "\n";
+            else
+                saida += funcoes[declaracao.indice].imprimir() + "\n";
+        }
+        saida += "main " + corpo->imprimir();
+        return saida;
+    }
+
+    for (const Decl& declaracao : decls)
+        saida += declaracao.imprimir() + "\n";
     saida += corpo ? corpo->imprimir() : exp->imprimir();
     return saida;
 }
 
 void Programa::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "programa\n";
-    for (const Decl& d : decls)
-        d.imprimir_arvore(os, nivel + 1);
+    if (forma_fun) {
+        for (const DeclaracaoTopo& declaracao : ordem_declaracoes) {
+            if (declaracao.tipo == TipoDeclaracaoTopo::VARIAVEL)
+                decls[declaracao.indice].imprimir_arvore(os, nivel + 1);
+            else
+                funcoes[declaracao.indice].imprimir_arvore(os, nivel + 1);
+        }
+        os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ')
+           << "main\n";
+        corpo->imprimir_arvore(os, nivel + 2);
+        return;
+    }
+
+    for (const Decl& declaracao : decls)
+        declaracao.imprimir_arvore(os, nivel + 1);
     if (corpo)
         corpo->imprimir_arvore(os, nivel + 1);
     else

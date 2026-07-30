@@ -233,6 +233,12 @@ static void gerar_bss(const Programa& programa, std::ostream& os) {
 }
 
 void gerar_assembly_completo(const Programa& programa, std::ostream& os) {
+    if (programa.eh_fun()) {
+        throw std::runtime_error(
+            "geracao de codigo para a linguagem Fun sera implementada "
+            "na Parte 3 da Atividade 10");
+    }
+
     os << "#\n";
     os << "# Codigo gerado pelo compilador EV\n";
     os << "#\n";

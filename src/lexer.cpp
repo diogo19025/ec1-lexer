@@ -48,6 +48,12 @@ Token Lexer::ler_identificador() {
         return Token(TokenType::WHILE, lexema, inicio);
     if (lexema == "return")
         return Token(TokenType::RETURN, lexema, inicio);
+    if (lexema == "fun")
+        return Token(TokenType::FUN, lexema, inicio);
+    if (lexema == "var")
+        return Token(TokenType::VAR, lexema, inicio);
+    if (lexema == "main")
+        return Token(TokenType::MAIN, lexema, inicio);
 
     return Token(TokenType::IDENTIFICADOR, lexema, inicio);
 }
@@ -80,6 +86,7 @@ Token Lexer::proximo_token() {
         case ')': return Token(TokenType::PAREN_DIR, ")", pos_atual);
         case '{': return Token(TokenType::CHAVE_ESQ, "{", pos_atual);
         case '}': return Token(TokenType::CHAVE_DIR, "}", pos_atual);
+        case ',': return Token(TokenType::VIRGULA,   ",", pos_atual);
         case '<': return Token(TokenType::MENOR,      "<", pos_atual);
         case '>': return Token(TokenType::MAIOR,      ">", pos_atual);
         case '+': return Token(TokenType::SOMA,      "+", pos_atual);

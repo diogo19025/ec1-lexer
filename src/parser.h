@@ -17,6 +17,7 @@ class Parser {
 private:
     std::vector<Token> tokens;
     std::size_t pos;
+    bool modo_fun;
 
     const Token& atual() const;
     Token avancar();
@@ -40,6 +41,7 @@ private:
     std::unique_ptr<Cmd>   analisaIf();          // <if>
     std::unique_ptr<Cmd>   analisaWhile();       // <while>
     std::unique_ptr<Cmd>   analisaRetorno();     // <retorno>
+    std::unique_ptr<Bloco> analisaCorpoFun();
 
     // gramatica das expressoes (Atividade 09, linguagem Cmd):
     //   <exp>      ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
@@ -49,6 +51,11 @@ private:
     // os operadores relacionais tem a menor precedencia: em "a + 1 < b * 2"
     // os dois lados sao agrupados antes da comparacao.
     Decl analisaDecl();                  // <decl> ::= <ident> '=' <exp> ';'
+    Decl analisaVarDecl();               // <vardecl> ::= 'var' <ident> '=' <exp> ';'
+    Funcao analisaFuncao();              // <fundecl>
+    std::vector<std::string> analisaParametrosFormais();
+    std::vector<std::unique_ptr<Exp>> analisaArgumentos();
+    std::unique_ptr<Programa> analisaProgramaFun();
     std::unique_ptr<Exp> analisaExp();   // <exp>:   comparacoes (<, >, ==)
     std::unique_ptr<Exp> analisaExpA();  // <exp_a>: adicao e subtracao
     std::unique_ptr<Exp> analisaExpM();  // <exp_m>: multiplicacao e divisao

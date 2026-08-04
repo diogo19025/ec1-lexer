@@ -8,6 +8,7 @@ PARSER_CMD_TEST_BIN := parser_cmd_tests
 SEMANTICA_CMD_TEST_BIN := semantica_cmd_tests
 LEXER_FUN_TEST_BIN := lexer_fun_tests
 PARSER_FUN_TEST_BIN := parser_fun_tests
+SEMANTICA_FUN_TEST_BIN := semantica_fun_tests
 
 $(BIN): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(BIN)
@@ -24,7 +25,8 @@ $(BIN): $(SRC)
 # test-cmd           : programas .ec1 de teste (atribuição/condição/repetição) da linguagem Cmd (Atividade 09 - parte 3)
 # test-lexer-fun     : tokens e palavras-chave da linguagem Fun (Atividade 10 - parte 1)
 # test-parser-fun    : AST e parser da linguagem Fun (Atividade 10 - parte 1)
-test: test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun
+# test-semantica-fun : análise semântica das funções da linguagem Fun (Atividade 10 - parte 2)
+test: test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun
 
 test-sin: $(BIN)
 	bash scripts/run_tests.sh
@@ -56,6 +58,10 @@ test-parser-fun:
 	$(CXX) $(CXXFLAGS) -Isrc tests/parser_fun_test.cpp src/lexer.cpp src/token.cpp src/parser.cpp src/ast.cpp src/semantica.cpp -o $(PARSER_FUN_TEST_BIN)
 	./$(PARSER_FUN_TEST_BIN)
 
+test-semantica-fun:
+	$(CXX) $(CXXFLAGS) -Isrc tests/semantica_fun_test.cpp src/lexer.cpp src/token.cpp src/parser.cpp src/ast.cpp src/semantica.cpp -o $(SEMANTICA_FUN_TEST_BIN)
+	./$(SEMANTICA_FUN_TEST_BIN)
+
 test-cmd: $(BIN)
 	bash scripts/run_tests_semantica_cmd.sh
 
@@ -66,6 +72,6 @@ test-cod-ev: $(BIN)
 	bash scripts/run_tests_ev.sh
 
 clean:
-	rm -f $(BIN) $(BIN).exe $(LEXER_TEST_BIN) $(LEXER_TEST_BIN).exe $(PARSER_TEST_BIN) $(PARSER_TEST_BIN).exe $(PARSER_CMD_TEST_BIN) $(PARSER_CMD_TEST_BIN).exe $(SEMANTICA_CMD_TEST_BIN) $(SEMANTICA_CMD_TEST_BIN).exe $(LEXER_FUN_TEST_BIN) $(LEXER_FUN_TEST_BIN).exe $(PARSER_FUN_TEST_BIN) $(PARSER_FUN_TEST_BIN).exe
+	rm -f $(BIN) $(BIN).exe $(LEXER_TEST_BIN) $(LEXER_TEST_BIN).exe $(PARSER_TEST_BIN) $(PARSER_TEST_BIN).exe $(PARSER_CMD_TEST_BIN) $(PARSER_CMD_TEST_BIN).exe $(SEMANTICA_CMD_TEST_BIN) $(SEMANTICA_CMD_TEST_BIN).exe $(LEXER_FUN_TEST_BIN) $(LEXER_FUN_TEST_BIN).exe $(PARSER_FUN_TEST_BIN) $(PARSER_FUN_TEST_BIN).exe $(SEMANTICA_FUN_TEST_BIN) $(SEMANTICA_FUN_TEST_BIN).exe
 
-.PHONY: test test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod test-cod-ev test-lexer-fun test-parser-fun clean
+.PHONY: test test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun clean

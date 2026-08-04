@@ -54,6 +54,23 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// chamada de funcao: <ident> '(' <params>? ')'
+class ChamadaFuncao : public Exp {
+private:
+    std::string nome;
+    std::vector<std::unique_ptr<Exp>> argumentos;
+public:
+    ChamadaFuncao(std::string nome,
+                  std::vector<std::unique_ptr<Exp>> argumentos);
+
+    const std::string& get_nome() const;
+    const std::vector<std::unique_ptr<Exp>>& get_argumentos() const;
+
+    long long avaliar() const override;
+    std::string imprimir() const override;
+    void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
 // nó interno: operação binária (esq OP dir)
 class OpBin : public Exp {
 private:
@@ -79,11 +96,14 @@ class Decl {
 private:
     std::string nome;
     std::unique_ptr<Exp> valor;
+    bool usa_palavra_var;
 public:
-    Decl(std::string nome, std::unique_ptr<Exp> valor);
+    Decl(std::string nome, std::unique_ptr<Exp> valor,
+         bool usa_palavra_var = false);
 
     const std::string& get_nome()  const;
     const Exp&         get_valor() const;
+    bool               usa_var()   const;
 
     // declaração como string no formato da gramática
     std::string imprimir() const;
@@ -152,6 +172,28 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// declaracao de funcao da linguagem Fun
+class Funcao {
+private:
+    std::string nome;
+    std::vector<std::string> parametros;
+    std::vector<Decl> variaveis_locais;
+    std::unique_ptr<Bloco> corpo;
+public:
+    Funcao(std::string nome,
+           std::vector<std::string> parametros,
+           std::vector<Decl> variaveis_locais,
+           std::unique_ptr<Bloco> corpo);
+
+    const std::string& get_nome() const;
+    const std::vector<std::string>& get_parametros() const;
+    const std::vector<Decl>& get_variaveis_locais() const;
+    const Bloco& get_corpo() const;
+
+    std::string imprimir() const;
+    void imprimir_arvore(std::ostream& os, int nivel = 0) const;
+};
+
 // condicional: 'if' '(' <exp> ')' <bloco> ('else' <bloco>)?
 // o ramo else é opcional (nulo quando ausente)
 class If : public Cmd {
@@ -191,20 +233,38 @@ public:
 // programa: zero ou mais declarações seguidas
 //  - da expressão final ('=' <exp>, forma EV das atividades anteriores), ou
 //  - de um corpo de comandos entre chaves (forma Cmd da Atividade 09)
+//  - de declaracoes e um bloco 'main' (forma Fun da Atividade 10)
 // exatamente um dos dois (exp ou corpo) é não-nulo
+enum class TipoDeclaracaoTopo { VARIAVEL, FUNCAO };
+
+struct DeclaracaoTopo {
+    TipoDeclaracaoTopo tipo;
+    std::size_t indice;
+};
+
 class Programa {
 private:
     std::vector<Decl> decls;
+    std::vector<Funcao> funcoes;
+    std::vector<DeclaracaoTopo> ordem_declaracoes;
     std::unique_ptr<Exp> exp;      // forma EV  (nulo na forma Cmd)
-    std::unique_ptr<Bloco> corpo;  // forma Cmd (nulo na forma EV)
+    std::unique_ptr<Bloco> corpo;  // forma Cmd/Fun (nulo na forma EV)
+    bool forma_fun;
 public:
     Programa(std::vector<Decl> decls, std::unique_ptr<Exp> exp);
     Programa(std::vector<Decl> decls, std::unique_ptr<Bloco> corpo);
+    Programa(std::vector<Decl> decls,
+             std::vector<Funcao> funcoes,
+             std::vector<DeclaracaoTopo> ordem_declaracoes,
+             std::unique_ptr<Bloco> corpo);
 
     const std::vector<Decl>& get_decls() const;
+    const std::vector<Funcao>& get_funcoes() const;
+    const std::vector<DeclaracaoTopo>& get_ordem_declaracoes() const;
     const Exp&               get_exp()   const;  // só na forma EV
     bool                     tem_corpo() const;
-    const Bloco&             get_corpo() const;  // só na forma Cmd
+    bool                     eh_fun()    const;
+    const Bloco&             get_corpo() const;  // nas formas Cmd/Fun
 
     // programa como string, uma declaração por linha e a expressão ao final
     std::string imprimir() const;

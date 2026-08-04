@@ -28,6 +28,12 @@ static void verificar_exp(const Exp& exp, const TabelaSimbolos& simbolos) {
         return;
     }
 
+    if (const auto* chamada = dynamic_cast<const ChamadaFuncao*>(&exp)) {
+        for (const auto& argumento : chamada->get_argumentos())
+            verificar_exp(*argumento, simbolos);
+        return;
+    }
+
     // Const e um valor literal, nao referencia nenhuma variavel
 }
 

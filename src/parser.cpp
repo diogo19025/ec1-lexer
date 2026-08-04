@@ -5,7 +5,7 @@ ErroSintatico::ErroSintatico(const std::string& msg)
     : std::runtime_error(msg) {}
 
 Parser::Parser(std::vector<Token> tokens)
-    : tokens(std::move(tokens)), pos(0) {}
+    : tokens(std::move(tokens)), pos(0), modo_fun(false) {}
 
 const Token& Parser::atual() const {
     return tokens[pos];
@@ -37,6 +37,74 @@ Decl Parser::analisaDecl() {
     std::unique_ptr<Exp> valor = analisaExp();
     consumir(TokenType::PONTO_VIRGULA, "ao final da declaracao");
     return Decl(nomeTok.get_lexema(), std::move(valor));
+}
+
+// <vardecl> ::= 'var' <ident> '=' <exp> ';'
+Decl Parser::analisaVarDecl() {
+    consumir(TokenType::VAR, "no inicio da declaracao de variavel");
+    Token nomeTok = consumir(TokenType::IDENTIFICADOR,
+                              "como nome da variavel");
+    consumir(TokenType::IGUAL, "apos o nome da variavel");
+    std::unique_ptr<Exp> valor = analisaExp();
+    consumir(TokenType::PONTO_VIRGULA, "ao final da declaracao");
+    return Decl(nomeTok.get_lexema(), std::move(valor), true);
+}
+
+std::vector<std::string> Parser::analisaParametrosFormais() {
+    std::vector<std::string> parametros;
+    if (atual().get_tipo() != TokenType::PAREN_DIR) {
+        while (true) {
+            Token parametro = consumir(
+                TokenType::IDENTIFICADOR,
+                "como parametro formal da funcao");
+            parametros.push_back(parametro.get_lexema());
+            if (atual().get_tipo() != TokenType::VIRGULA)
+                break;
+            avancar();
+        }
+    }
+    consumir(TokenType::PAREN_DIR, "para fechar a lista de parametros");
+    return parametros;
+}
+
+std::vector<std::unique_ptr<Exp>> Parser::analisaArgumentos() {
+    std::vector<std::unique_ptr<Exp>> argumentos;
+    if (atual().get_tipo() != TokenType::PAREN_DIR) {
+        while (true) {
+            argumentos.push_back(analisaExp());
+            if (atual().get_tipo() != TokenType::VIRGULA)
+                break;
+            avancar();
+        }
+    }
+    consumir(TokenType::PAREN_DIR, "para fechar a chamada de funcao");
+    return argumentos;
+}
+
+Funcao Parser::analisaFuncao() {
+    consumir(TokenType::FUN, "no inicio da declaracao de funcao");
+    Token nome = consumir(TokenType::IDENTIFICADOR,
+                          "como nome da funcao");
+    consumir(TokenType::PAREN_ESQ, "apos o nome da funcao");
+    std::vector<std::string> parametros = analisaParametrosFormais();
+    consumir(TokenType::CHAVE_ESQ, "para abrir o corpo da funcao");
+
+    std::vector<Decl> variaveis_locais;
+    while (atual().get_tipo() == TokenType::VAR)
+        variaveis_locais.push_back(analisaVarDecl());
+
+    std::vector<std::unique_ptr<Cmd>> comandos;
+    while (atual().get_tipo() != TokenType::RETURN &&
+           atual().get_tipo() != TokenType::CHAVE_DIR &&
+           atual().get_tipo() != TokenType::FIM)
+        comandos.push_back(analisaCmd());
+
+    comandos.push_back(analisaRetorno());
+    consumir(TokenType::CHAVE_DIR, "para fechar o corpo da funcao");
+
+    return Funcao(nome.get_lexema(), std::move(parametros),
+                  std::move(variaveis_locais),
+                  std::make_unique<Bloco>(std::move(comandos)));
 }
 
 // <exp> ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
@@ -108,11 +176,17 @@ std::unique_ptr<Exp> Parser::analisaPrim() {
         }
     }
 
-    // referencia a uma variavel: nao verificamos aqui se ela foi
-    // declarada, isso e responsabilidade da analise semantica
     if (tok.get_tipo() == TokenType::IDENTIFICADOR) {
-        avancar();
-        return std::make_unique<Var>(tok.get_lexema());
+        Token nome = avancar();
+        if (atual().get_tipo() == TokenType::PAREN_ESQ) {
+            avancar();
+            return std::make_unique<ChamadaFuncao>(
+                nome.get_lexema(), analisaArgumentos());
+        }
+
+        // referencia a uma variavel: a verificacao de declaracao pertence
+        // a analise semantica.
+        return std::make_unique<Var>(nome.get_lexema());
     }
 
     if (tok.get_tipo() == TokenType::PAREN_ESQ) {
@@ -138,6 +212,22 @@ std::unique_ptr<Bloco> Parser::analisaBloco() {
         comandos.push_back(analisaCmd());
 
     consumir(TokenType::CHAVE_DIR, "para fechar o bloco de comandos");
+    return std::make_unique<Bloco>(std::move(comandos));
+}
+
+// Corpo de funcao/main: comandos seguidos obrigatoriamente por um return
+// final. As declaracoes locais da funcao sao consumidas por analisaFuncao.
+std::unique_ptr<Bloco> Parser::analisaCorpoFun() {
+    consumir(TokenType::CHAVE_ESQ, "para abrir o bloco");
+
+    std::vector<std::unique_ptr<Cmd>> comandos;
+    while (atual().get_tipo() != TokenType::RETURN &&
+           atual().get_tipo() != TokenType::CHAVE_DIR &&
+           atual().get_tipo() != TokenType::FIM)
+        comandos.push_back(analisaCmd());
+
+    comandos.push_back(analisaRetorno());
+    consumir(TokenType::CHAVE_DIR, "para fechar o bloco");
     return std::make_unique<Bloco>(std::move(comandos));
 }
 
@@ -173,9 +263,14 @@ std::unique_ptr<Cmd> Parser::analisaAtribuicao() {
 // <if> ::= 'if' '(' <exp> ')' <bloco> ('else' <bloco>)?
 std::unique_ptr<Cmd> Parser::analisaIf() {
     consumir(TokenType::IF, "no inicio do comando if");
-    consumir(TokenType::PAREN_ESQ, "apos o if");
+    bool tem_parenteses = atual().get_tipo() == TokenType::PAREN_ESQ;
+    if (!modo_fun || tem_parenteses) {
+        consumir(TokenType::PAREN_ESQ, "apos o if");
+        tem_parenteses = true;
+    }
     std::unique_ptr<Exp> condicao = analisaExp();
-    consumir(TokenType::PAREN_DIR, "para fechar a condicao do if");
+    if (tem_parenteses)
+        consumir(TokenType::PAREN_DIR, "para fechar a condicao do if");
     std::unique_ptr<Bloco> entao = analisaBloco();
 
     std::unique_ptr<Bloco> senao;
@@ -190,9 +285,14 @@ std::unique_ptr<Cmd> Parser::analisaIf() {
 // <while> ::= 'while' '(' <exp> ')' <bloco>
 std::unique_ptr<Cmd> Parser::analisaWhile() {
     consumir(TokenType::WHILE, "no inicio do comando while");
-    consumir(TokenType::PAREN_ESQ, "apos o while");
+    bool tem_parenteses = atual().get_tipo() == TokenType::PAREN_ESQ;
+    if (!modo_fun || tem_parenteses) {
+        consumir(TokenType::PAREN_ESQ, "apos o while");
+        tem_parenteses = true;
+    }
     std::unique_ptr<Exp> condicao = analisaExp();
-    consumir(TokenType::PAREN_DIR, "para fechar a condicao do while");
+    if (tem_parenteses)
+        consumir(TokenType::PAREN_DIR, "para fechar a condicao do while");
     std::unique_ptr<Bloco> corpo = analisaBloco();
     return std::make_unique<While>(std::move(condicao), std::move(corpo));
 }
@@ -205,12 +305,53 @@ std::unique_ptr<Cmd> Parser::analisaRetorno() {
     return std::make_unique<Retorno>(std::move(valor));
 }
 
+std::unique_ptr<Programa> Parser::analisaProgramaFun() {
+    modo_fun = true;
+    std::vector<Decl> variaveis_globais;
+    std::vector<Funcao> funcoes;
+    std::vector<DeclaracaoTopo> ordem_declaracoes;
+
+    while (atual().get_tipo() == TokenType::VAR ||
+           atual().get_tipo() == TokenType::FUN) {
+        if (atual().get_tipo() == TokenType::VAR) {
+            variaveis_globais.push_back(analisaVarDecl());
+            ordem_declaracoes.push_back(
+                {TipoDeclaracaoTopo::VARIAVEL,
+                 variaveis_globais.size() - 1});
+        } else {
+            funcoes.push_back(analisaFuncao());
+            ordem_declaracoes.push_back(
+                {TipoDeclaracaoTopo::FUNCAO, funcoes.size() - 1});
+        }
+    }
+
+    consumir(TokenType::MAIN,
+             "depois das declaracoes globais e de funcoes");
+    std::unique_ptr<Bloco> principal = analisaCorpoFun();
+    consumir(TokenType::FIM, "ao final do programa");
+
+    auto programa = std::make_unique<Programa>(
+        std::move(variaveis_globais), std::move(funcoes),
+        std::move(ordem_declaracoes), std::move(principal));
+
+    // Nesta primeira parte, a verificacao existente continua cobrindo
+    // variaveis globais e o bloco main. Escopos e chamadas de funcao sao
+    // responsabilidade da Parte 2 da Atividade 10.
+    verificar_variaveis(*programa);
+    return programa;
+}
+
 // <programa> ::= <decl>* ( '=' <exp> | <bloco> )
 //
 // olha o proximo token: enquanto for um identificador, reconhece mais uma
 // declaracao; depois, um '{' abre o corpo de comandos (linguagem Cmd) e um
 // '=' inicia a expressao final (forma EV das atividades anteriores).
 std::unique_ptr<Programa> Parser::analisar() {
+    if (atual().get_tipo() == TokenType::VAR ||
+        atual().get_tipo() == TokenType::FUN ||
+        atual().get_tipo() == TokenType::MAIN)
+        return analisaProgramaFun();
+
     std::vector<Decl> decls;
 
     while (atual().get_tipo() == TokenType::IDENTIFICADOR)

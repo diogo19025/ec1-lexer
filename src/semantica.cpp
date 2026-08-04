@@ -104,6 +104,16 @@ void verificar_variaveis(const Programa& programa) {
         simbolos.insert(decl.get_nome());
     }
 
+    // forma Fun: as locais do main entram na tabela depois das globais e na
+    // ordem em que foram declaradas, do mesmo jeito que as globais. Como a
+    // tabela ainda e um conjunto plano de nomes, uma local de mesmo nome que
+    // uma global apenas reinsere o nome; o sombreamento de verdade (e os
+    // escopos das funcoes) vem com os simbolos tipados da Parte 2.
+    for (const Decl& local : programa.get_locais_main()) {
+        verificar_exp(local.get_valor(), simbolos);
+        simbolos.insert(local.get_nome());
+    }
+
     // a partir daqui o programa tem uma das duas formas possiveis:
     //  - forma Cmd (Atividade 09): corpo de comandos entre chaves
     //  - forma EV  (Atividade 08): expressao final ('=' <exp>)

@@ -87,24 +87,12 @@ Funcao Parser::analisaFuncao() {
                           "como nome da funcao");
     consumir(TokenType::PAREN_ESQ, "apos o nome da funcao");
     std::vector<std::string> parametros = analisaParametrosFormais();
-    consumir(TokenType::CHAVE_ESQ, "para abrir o corpo da funcao");
 
     std::vector<Decl> variaveis_locais;
-    while (atual().get_tipo() == TokenType::VAR)
-        variaveis_locais.push_back(analisaVarDecl());
-
-    std::vector<std::unique_ptr<Cmd>> comandos;
-    while (atual().get_tipo() != TokenType::RETURN &&
-           atual().get_tipo() != TokenType::CHAVE_DIR &&
-           atual().get_tipo() != TokenType::FIM)
-        comandos.push_back(analisaCmd());
-
-    comandos.push_back(analisaRetorno());
-    consumir(TokenType::CHAVE_DIR, "para fechar o corpo da funcao");
+    std::unique_ptr<Bloco> corpo = analisaCorpoFun(variaveis_locais);
 
     return Funcao(nome.get_lexema(), std::move(parametros),
-                  std::move(variaveis_locais),
-                  std::make_unique<Bloco>(std::move(comandos)));
+                  std::move(variaveis_locais), std::move(corpo));
 }
 
 // <exp> ::= <exp_a> (('<' | '>' | '==') <exp_a>)*
@@ -215,10 +203,16 @@ std::unique_ptr<Bloco> Parser::analisaBloco() {
     return std::make_unique<Bloco>(std::move(comandos));
 }
 
-// Corpo de funcao/main: comandos seguidos obrigatoriamente por um return
-// final. As declaracoes locais da funcao sao consumidas por analisaFuncao.
-std::unique_ptr<Bloco> Parser::analisaCorpoFun() {
+// Corpo de funcao/main: '{' <vardecl>* <cmd>* <retorno> '}'
+// As declaracoes locais vem antes dos comandos e sao devolvidas em
+// 'locais'; o corpo termina obrigatoriamente com um return. Serve tanto ao
+// corpo de uma funcao quanto ao bloco main, que declara locais do mesmo
+// jeito.
+std::unique_ptr<Bloco> Parser::analisaCorpoFun(std::vector<Decl>& locais) {
     consumir(TokenType::CHAVE_ESQ, "para abrir o bloco");
+
+    while (atual().get_tipo() == TokenType::VAR)
+        locais.push_back(analisaVarDecl());
 
     std::vector<std::unique_ptr<Cmd>> comandos;
     while (atual().get_tipo() != TokenType::RETURN &&
@@ -327,12 +321,14 @@ std::unique_ptr<Programa> Parser::analisaProgramaFun() {
 
     consumir(TokenType::MAIN,
              "depois das declaracoes globais e de funcoes");
-    std::unique_ptr<Bloco> principal = analisaCorpoFun();
+    std::vector<Decl> locais_main;
+    std::unique_ptr<Bloco> principal = analisaCorpoFun(locais_main);
     consumir(TokenType::FIM, "ao final do programa");
 
     auto programa = std::make_unique<Programa>(
         std::move(variaveis_globais), std::move(funcoes),
-        std::move(ordem_declaracoes), std::move(principal));
+        std::move(ordem_declaracoes), std::move(locais_main),
+        std::move(principal));
 
     // Nesta primeira parte, a verificacao existente continua cobrindo
     // variaveis globais e o bloco main. Escopos e chamadas de funcao sao

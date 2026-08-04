@@ -117,6 +117,33 @@ static void teste_recursao_sintatica() {
            "if/else sem parenteses segue a gramatica Fun");
 }
 
+// o bloco main declara variaveis locais como uma funcao: 'var' no topo do
+// corpo, antes dos comandos
+static void teste_variaveis_locais_do_main() {
+    auto programa = parse(
+        "var g = 1;"
+        "main {"
+        "  var a = 2;"
+        "  var g = 3;"
+        "  a = a + g;"
+        "  return a;"
+        "}");
+
+    checar(programa->get_locais_main().size() == 2 &&
+           programa->get_locais_main()[0].get_nome() == "a" &&
+           programa->get_locais_main()[1].get_nome() == "g",
+           "main aceita variaveis locais, em ordem");
+    checar(programa->get_decls().size() == 1 &&
+           programa->get_decls()[0].get_nome() == "g",
+           "locais do main nao se misturam com as globais");
+    checar(programa->get_corpo().get_comandos().size() == 2,
+           "locais do main ficam separadas dos comandos");
+    checar(parse("main { return 1; }")->get_locais_main().empty(),
+           "main sem locais continua valido");
+    checar(rejeita("main { var a = 1; return a; var b = 2; }"),
+           "var depois dos comandos no main e rejeitada");
+}
+
 static void teste_erros_sintaticos() {
     checar(rejeita("fun f() { return 1; }"),
            "programa Fun sem main e rejeitado");
@@ -134,6 +161,7 @@ int main() {
     teste_programa_fun_completo();
     teste_chamadas_aninhadas_e_vazias();
     teste_recursao_sintatica();
+    teste_variaveis_locais_do_main();
     teste_erros_sintaticos();
 
     if (falhas == 0) {

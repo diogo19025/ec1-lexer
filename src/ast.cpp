@@ -325,10 +325,12 @@ Programa::Programa(std::vector<Decl> decls, std::unique_ptr<Bloco> corpo)
 Programa::Programa(std::vector<Decl> decls,
                    std::vector<Funcao> funcoes,
                    std::vector<DeclaracaoTopo> ordem_declaracoes,
+                   std::vector<Decl> locais_main,
                    std::unique_ptr<Bloco> corpo)
     : decls(std::move(decls)),
       funcoes(std::move(funcoes)),
       ordem_declaracoes(std::move(ordem_declaracoes)),
+      locais_main(std::move(locais_main)),
       exp(nullptr),
       corpo(std::move(corpo)),
       forma_fun(true) {}
@@ -338,6 +340,9 @@ const std::vector<Funcao>& Programa::get_funcoes() const { return funcoes; }
 const std::vector<DeclaracaoTopo>&
 Programa::get_ordem_declaracoes() const {
     return ordem_declaracoes;
+}
+const std::vector<Decl>& Programa::get_locais_main() const {
+    return locais_main;
 }
 const Exp&               Programa::get_exp()   const { return *exp; }
 bool                     Programa::tem_corpo() const { return corpo != nullptr; }
@@ -353,7 +358,14 @@ std::string Programa::imprimir() const {
             else
                 saida += funcoes[declaracao.indice].imprimir() + "\n";
         }
-        saida += "main " + corpo->imprimir();
+        // o main imprime as proprias locais antes dos comandos, do mesmo
+        // jeito que Funcao::imprimir faz com as locais da funcao
+        saida += "main {";
+        for (const Decl& variavel : locais_main)
+            saida += " " + variavel.imprimir();
+        for (const auto& comando : corpo->get_comandos())
+            saida += " " + comando->imprimir();
+        saida += " }";
         return saida;
     }
 
@@ -374,6 +386,14 @@ void Programa::imprimir_arvore(std::ostream& os, int nivel) const {
         }
         os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ')
            << "main\n";
+        // so imprime o cabecalho quando o main tem locais, para nao poluir
+        // a arvore dos programas que nao declaram nenhuma
+        if (!locais_main.empty()) {
+            os << std::string(static_cast<std::size_t>(nivel + 2) * 2, ' ')
+               << "variaveis locais\n";
+            for (const Decl& variavel : locais_main)
+                variavel.imprimir_arvore(os, nivel + 3);
+        }
         corpo->imprimir_arvore(os, nivel + 2);
         return;
     }

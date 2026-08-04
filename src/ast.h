@@ -247,6 +247,7 @@ private:
     std::vector<Decl> decls;
     std::vector<Funcao> funcoes;
     std::vector<DeclaracaoTopo> ordem_declaracoes;
+    std::vector<Decl> locais_main;  // 'var' declaradas dentro do main (forma Fun)
     std::unique_ptr<Exp> exp;      // forma EV  (nulo na forma Cmd)
     std::unique_ptr<Bloco> corpo;  // forma Cmd/Fun (nulo na forma EV)
     bool forma_fun;
@@ -256,11 +257,15 @@ public:
     Programa(std::vector<Decl> decls,
              std::vector<Funcao> funcoes,
              std::vector<DeclaracaoTopo> ordem_declaracoes,
+             std::vector<Decl> locais_main,
              std::unique_ptr<Bloco> corpo);
 
     const std::vector<Decl>& get_decls() const;
     const std::vector<Funcao>& get_funcoes() const;
     const std::vector<DeclaracaoTopo>& get_ordem_declaracoes() const;
+    // variáveis locais do bloco main, como as de uma função (vazio fora da
+    // forma Fun); assim como os locais de uma função, sombreiam as globais
+    const std::vector<Decl>& get_locais_main() const;
     const Exp&               get_exp()   const;  // só na forma EV
     bool                     tem_corpo() const;
     bool                     eh_fun()    const;

@@ -1,0 +1,7 @@
+var x = 100;
+fun teste(x) {
+    return x + 1;
+}
+main {
+    return teste(1) + x;
+}

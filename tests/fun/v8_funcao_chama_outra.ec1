@@ -1,0 +1,9 @@
+fun dobro(x) {
+    return x * 2;
+}
+fun quadruplo(x) {
+    return dobro(dobro(x));
+}
+main {
+    return quadruplo(5);
+}

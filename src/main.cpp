@@ -91,11 +91,12 @@ static int modo_analisar(const std::string& caminho) {
 
         // a interpretacao direta (avaliar) so existe para expressoes sem
         // variaveis: Var::avaliar() lanca erro, pois nao ha um ambiente de
-        // valores nesta etapa (a avaliacao de programas com variaveis e
-        // feita gerando e executando o assembly, com --compilar).
+        // valores nesta etapa (a avaliacao de programas com variaveis,
+        // comandos ou funcoes e feita gerando e executando o assembly,
+        // com --compilar).
         if (arvore->tem_corpo()) {
-            std::cout << "(programa com comandos; interpretacao e geracao "
-                       << "de codigo virao nas partes 3 e 4 da Atividade 09)\n";
+            std::cout << "(programa com comandos ou funcoes; use --compilar "
+                       << "para gerar e executar o assembly)\n";
         } else if (arvore->get_decls().empty()) {
             std::cout << "Valor: " << arvore->get_exp().avaliar() << "\n";
         } else {

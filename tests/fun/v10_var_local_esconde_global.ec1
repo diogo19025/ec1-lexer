@@ -1,0 +1,9 @@
+var contador = 1;
+fun incrementa() {
+    var contador = 99;
+    contador = contador + 1;
+    return contador;
+}
+main {
+    return incrementa() + contador;
+}

@@ -1,0 +1,7 @@
+fun f() {
+    return 1;
+}
+main {
+    f = 5;
+    return f;
+}

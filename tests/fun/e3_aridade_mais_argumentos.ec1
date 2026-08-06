@@ -1,0 +1,6 @@
+fun soma(x, y) {
+    return x + y;
+}
+main {
+    return soma(1, 2, 3);
+}

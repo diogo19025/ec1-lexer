@@ -41,8 +41,10 @@ private:
     std::unique_ptr<Cmd>   analisaIf();          // <if>
     std::unique_ptr<Cmd>   analisaWhile();       // <while>
     std::unique_ptr<Cmd>   analisaRetorno();     // <retorno>
-    // corpo de funcao/main: locais 'var' seguidas de comandos e do return
-    // final; as declaracoes locais lidas sao devolvidas em 'locais'
+    // corpo de funcao/main: locais 'var' seguidas de comandos (podendo
+    // conter 'return' em qualquer nivel, inclusive dentro de if/while,
+    // como em uma recursao com if/else); as declaracoes locais lidas sao
+    // devolvidas em 'locais'
     std::unique_ptr<Bloco> analisaCorpoFun(std::vector<Decl>& locais);
 
     // gramatica das expressoes (Atividade 09, linguagem Cmd):

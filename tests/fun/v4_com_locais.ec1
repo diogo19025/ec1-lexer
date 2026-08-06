@@ -1,0 +1,8 @@
+fun media(a, b) {
+    var soma = a + b;
+    var resultado = soma / 2;
+    return resultado;
+}
+main {
+    return media(10, 20);
+}

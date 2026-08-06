@@ -203,11 +203,54 @@ std::unique_ptr<Bloco> Parser::analisaBloco() {
     return std::make_unique<Bloco>(std::move(comandos));
 }
 
-// Corpo de funcao/main: '{' <vardecl>* <cmd>* <retorno> '}'
+// verifica recursivamente se um comando contem um 'return' em algum nivel
+// (diretamente, ou dentro de um bloco aninhado, de um dos ramos de um if,
+// ou do corpo de um while)
+static bool contem_return(const Cmd& cmd) {
+    if (dynamic_cast<const Retorno*>(&cmd) != nullptr)
+        return true;
+
+    if (const auto* bloco = dynamic_cast<const Bloco*>(&cmd)) {
+        for (const auto& c : bloco->get_comandos())
+            if (contem_return(*c))
+                return true;
+        return false;
+    }
+
+    if (const auto* no_if = dynamic_cast<const If*>(&cmd)) {
+        for (const auto& c : no_if->get_entao().get_comandos())
+            if (contem_return(*c))
+                return true;
+        if (no_if->tem_senao())
+            for (const auto& c : no_if->get_senao().get_comandos())
+                if (contem_return(*c))
+                    return true;
+        return false;
+    }
+
+    if (const auto* no_while = dynamic_cast<const While*>(&cmd)) {
+        for (const auto& c : no_while->get_corpo().get_comandos())
+            if (contem_return(*c))
+                return true;
+        return false;
+    }
+
+    return false;  // Atribuicao nao contem return
+}
+
+// Corpo de funcao/main: '{' <vardecl>* <cmd>* '}'
 // As declaracoes locais vem antes dos comandos e sao devolvidas em
-// 'locais'; o corpo termina obrigatoriamente com um return. Serve tanto ao
-// corpo de uma funcao quanto ao bloco main, que declara locais do mesmo
-// jeito.
+// 'locais'. Os comandos seguem a mesma gramatica <cmd> de um bloco comum
+// (atribuicao, if, while, return, bloco aninhado): um 'return' pode
+// aparecer tanto diretamente no corpo quanto dentro dos ramos de um if/else
+// ou de um while — por exemplo, uma funcao recursiva escrita com
+// "if (...) { return ...; } else { return ...; }" e uma forma valida e
+// comum de terminar o corpo, mesmo sem um 'return' textualmente no ultimo
+// nivel. Ainda assim, o corpo precisa conter pelo menos um 'return' em
+// algum ponto (em qualquer nivel de aninhamento) — um corpo sem nenhum
+// 'return' e um erro de sintaxe, ja que toda funcao (e o bloco main) deve
+// produzir um valor. Serve tanto ao corpo de uma funcao quanto ao bloco
+// main, que declara locais do mesmo jeito.
 std::unique_ptr<Bloco> Parser::analisaCorpoFun(std::vector<Decl>& locais) {
     consumir(TokenType::CHAVE_ESQ, "para abrir o bloco");
 
@@ -215,13 +258,20 @@ std::unique_ptr<Bloco> Parser::analisaCorpoFun(std::vector<Decl>& locais) {
         locais.push_back(analisaVarDecl());
 
     std::vector<std::unique_ptr<Cmd>> comandos;
-    while (atual().get_tipo() != TokenType::RETURN &&
-           atual().get_tipo() != TokenType::CHAVE_DIR &&
+    while (atual().get_tipo() != TokenType::CHAVE_DIR &&
            atual().get_tipo() != TokenType::FIM)
         comandos.push_back(analisaCmd());
 
-    comandos.push_back(analisaRetorno());
     consumir(TokenType::CHAVE_DIR, "para fechar o bloco");
+
+    bool tem_return = false;
+    for (const auto& c : comandos)
+        if (contem_return(*c))
+            { tem_return = true; break; }
+    if (!tem_return)
+        throw ErroSintatico(
+            "corpo de funcao/main precisa conter pelo menos um 'return'");
+
     return std::make_unique<Bloco>(std::move(comandos));
 }
 

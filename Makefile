@@ -28,7 +28,8 @@ $(BIN): $(SRC)
 # test-parser-fun    : AST e parser da linguagem Fun (Atividade 10 - parte 1)
 # test-semantica-fun : análise semântica das funções da linguagem Fun (Atividade 10 - parte 2)
 # test-codegen-fun   : geração de código das funções da linguagem Fun (Atividade 10 - parte 3)
-test: test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun
+# test-fun           : testes ponta a ponta (compilar/montar/linkar/executar) da linguagem Fun (Atividade 10 - integração)
+test: test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun test-fun
 
 test-sin: $(BIN)
 	bash scripts/run_tests.sh
@@ -68,6 +69,9 @@ test-codegen-fun:
 	$(CXX) $(CXXFLAGS) -Isrc tests/codegen_fun_test.cpp src/lexer.cpp src/token.cpp src/parser.cpp src/ast.cpp src/semantica.cpp src/codegen.cpp -o $(CODEGEN_FUN_TEST_BIN)
 	./$(CODEGEN_FUN_TEST_BIN)
 
+test-fun: $(BIN)
+	bash scripts/run_tests_fun.sh
+
 test-cmd: $(BIN)
 	bash scripts/run_tests_semantica_cmd.sh
 
@@ -80,4 +84,4 @@ test-cod-ev: $(BIN)
 clean:
 	rm -f $(BIN) $(BIN).exe $(LEXER_TEST_BIN) $(LEXER_TEST_BIN).exe $(PARSER_TEST_BIN) $(PARSER_TEST_BIN).exe $(PARSER_CMD_TEST_BIN) $(PARSER_CMD_TEST_BIN).exe $(SEMANTICA_CMD_TEST_BIN) $(SEMANTICA_CMD_TEST_BIN).exe $(LEXER_FUN_TEST_BIN) $(LEXER_FUN_TEST_BIN).exe $(PARSER_FUN_TEST_BIN) $(PARSER_FUN_TEST_BIN).exe $(SEMANTICA_FUN_TEST_BIN) $(SEMANTICA_FUN_TEST_BIN).exe $(CODEGEN_FUN_TEST_BIN) $(CODEGEN_FUN_TEST_BIN).exe
 
-.PHONY: test test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun clean
+.PHONY: test test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun test-fun clean

@@ -1,0 +1,6 @@
+fun soma4(a, b, c, d) {
+    return a + b + c + d;
+}
+main {
+    return soma4(1, 2, 3, 4);
+}

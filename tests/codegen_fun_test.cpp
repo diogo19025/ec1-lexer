@@ -147,6 +147,46 @@ static void teste_global_vs_local() {
 }
 
 // -----------------------------------------------------------------------
+// Escopo da EXPRESSAO de inicializacao de uma variavel local
+//
+// A analise semantica registra uma local so DEPOIS de verificar a expressao
+// que a inicializa (verificar_corpo, em semantica.cpp), entao em
+// "var g = g + 1;" o 'g' da direita e a global. O gerador de codigo precisa
+// enxergar a mesma coisa: se ele montar o mapa de deslocamentos completo
+// antes de gerar as inicializacoes, o 'g' da direita vira o deslocamento da
+// local que ainda nao foi inicializada e o programa le lixo da pilha, sem
+// nenhum erro de compilacao, montagem ou execucao.
+// -----------------------------------------------------------------------
+
+static void teste_escopo_inicializacao_local() {
+    std::string s = gerar(
+        "var g = 10;"
+        "fun f() { var g = g + 1; return g; }"
+        "main { return f(); }");
+
+    // dentro de f, o 'g' da expressao de inicializacao e a global (pelo
+    // nome); so a escrita do resultado usa o deslocamento da local
+    checar(contem(s, "mov g, %rax"),
+           "a expressao que inicializa uma local le a global que ela esconde");
+    checar(contem(s, "mov %rax, -8(%rbp)"),
+           "o resultado da inicializacao e guardado no deslocamento da local");
+    checar(!contem(s, "mov -8(%rbp), %rax\n    pop %rbx"),
+           "a local ainda nao inicializada nao e lida na propria inicializacao");
+
+    // a partir da segunda local, as anteriores ja sao visiveis
+    std::string d = gerar(
+        "fun f() { var a = 1; var b = a + 1; return b; }"
+        "main { return f(); }");
+    checar(contem(d, "mov -8(%rbp), %rax"),
+           "uma local pode ler outra declarada antes dela");
+
+    // o bloco main tem locais como uma funcao, e a mesma regra vale
+    std::string m = gerar("var g = 10; main { var g = g + 1; return g; }");
+    checar(contem(m, "mov g, %rax"),
+           "no main, a inicializacao de uma local tambem le a global escondida");
+}
+
+// -----------------------------------------------------------------------
 // Funcao sem parametros e sem variaveis locais
 // -----------------------------------------------------------------------
 
@@ -191,6 +231,7 @@ int main() {
     teste_prologo_epilogo();
     teste_deslocamentos();
     teste_global_vs_local();
+    teste_escopo_inicializacao_local();
     teste_sem_parametros_sem_locais();
     teste_aninhada_e_recursiva();
 

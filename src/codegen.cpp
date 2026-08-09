@@ -255,27 +255,49 @@ static void gerar_bloco(const Bloco& bloco, std::ostream& os,
 // perto do topo da pilha no momento do "call", e por isso no deslocamento
 // mais baixo. As variáveis locais, na ordem em que aparecem, ocupam
 // -8(%rbp), -16(%rbp), ... abaixo do %rbp salvo.
+static std::string deslocamento_parametro(std::size_t i) {
+    return std::to_string(16 + 8 * i) + "(%rbp)";
+}
+
+static std::string deslocamento_local(std::size_t i) {
+    return std::to_string(-8 * static_cast<long long>(i + 1)) + "(%rbp)";
+}
+
 static MapaLocal montar_mapa_local(const std::vector<std::string>& parametros,
                                     const std::vector<Decl>& variaveis_locais) {
     MapaLocal locais;
     for (std::size_t i = 0; i < parametros.size(); ++i)
-        locais[parametros[i]] =
-            std::to_string(16 + 8 * i) + "(%rbp)";
+        locais[parametros[i]] = deslocamento_parametro(i);
     for (std::size_t i = 0; i < variaveis_locais.size(); ++i)
-        locais[variaveis_locais[i].get_nome()] =
-            std::to_string(-8 * static_cast<long long>(i + 1)) + "(%rbp)";
+        locais[variaveis_locais[i].get_nome()] = deslocamento_local(i);
     return locais;
 }
 
 // gera o código das variáveis locais de um corpo: cada uma tem seu valor
-// calculado e guardado no deslocamento reservado para ela no frame
-static void gerar_locais(const std::vector<Decl>& variaveis_locais,
-                         const MapaLocal& locais, std::ostream& os) {
-    for (const Decl& local : variaveis_locais) {
+// calculado e guardado no deslocamento reservado para ela no frame.
+//
+// O mapa usado para gerar a EXPRESSÃO de cada local cresce a cada
+// declaração: quando a expressão da i-ésima local é gerada, ele contém
+// apenas os parâmetros e as locais declaradas ANTES dela — a local atual só
+// é registrada depois, para a instrução que guarda o resultado. É isso que
+// faz "var g = g + 1;" dentro de uma função ler a variável global 'g',
+// exatamente como a análise semântica verificou (verificar_corpo, em
+// semantica.cpp, também só registra a local depois de checar a expressão
+// dela). Usar o mapa completo desde o início faria o 'g' da direita virar o
+// deslocamento da local ainda não inicializada, e o programa leria lixo da
+// pilha sem nenhum aviso.
+static void gerar_locais(const std::vector<std::string>& parametros,
+                         const std::vector<Decl>& variaveis_locais,
+                         std::ostream& os) {
+    MapaLocal visiveis = montar_mapa_local(parametros, {});
+
+    for (std::size_t i = 0; i < variaveis_locais.size(); ++i) {
+        const Decl& local = variaveis_locais[i];
         os << "    # var " << local.get_nome() << " = "
            << local.get_valor().imprimir() << ";\n";
-        gerar_rec(local.get_valor(), os, locais);
-        os << "    mov %rax, " << operando(local.get_nome(), locais) << "\n";
+        gerar_rec(local.get_valor(), os, visiveis);
+        visiveis[local.get_nome()] = deslocamento_local(i);
+        os << "    mov %rax, " << visiveis[local.get_nome()] << "\n";
     }
 }
 
@@ -304,7 +326,7 @@ static void gerar_funcao(const Funcao& funcao, std::ostream& os) {
         os << "    sub $" << (8 * funcao.get_variaveis_locais().size())
            << ", %rsp\n";
 
-    gerar_locais(funcao.get_variaveis_locais(), locais, os);
+    gerar_locais(funcao.get_parametros(), funcao.get_variaveis_locais(), os);
     gerar_bloco(funcao.get_corpo(), os, locais, rotulo_fim);
 
     os << rotulo_fim << ":\n";
@@ -329,7 +351,7 @@ static void gerar_main(const Programa& programa, std::ostream& os) {
         os << "    sub $" << (8 * locais_decl.size()) << ", %rsp\n";
     }
 
-    gerar_locais(locais_decl, locais, os);
+    gerar_locais({}, locais_decl, os);
     gerar_bloco(programa.get_corpo(), os, locais, ROTULO_FIM_PROGRAMA);
     os << ROTULO_FIM_PROGRAMA << ":\n";
 }

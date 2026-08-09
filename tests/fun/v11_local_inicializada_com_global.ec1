@@ -1,0 +1,11 @@
+var base = 5;
+
+fun incrementa() {
+    var base = base + 1;
+    return base;
+}
+
+main {
+    var base = base * 2;
+    return incrementa() + base;
+}

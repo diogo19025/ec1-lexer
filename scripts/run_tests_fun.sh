@@ -29,6 +29,7 @@ validos=(
   "tests/fun/v8_funcao_chama_outra.ec1|20|funcao que chama outra funcao"
   "tests/fun/v9_sombreamento_global.ec1|102|parametro de funcao esconde variavel global"
   "tests/fun/v10_var_local_esconde_global.ec1|101|variavel local de funcao esconde global e a atualiza"
+  "tests/fun/v11_local_inicializada_com_global.ec1|16|expressao que inicializa uma local le a global que ela esconde"
 )
 
 echo "===== Testes ponta a ponta: linguagem Fun (Atividade 10) ====="

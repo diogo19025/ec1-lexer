@@ -571,17 +571,18 @@ ambiente Linux x86-64.
   argumentos, prólogo/epílogo, deslocamentos de parâmetros e variáveis
   locais em relação a `%rbp`, e resolução de local vs. global dentro do
   corpo de uma função.
-- `tests/fun/` contém 15 programas `.ec1` completos para os testes **ponta
+- `tests/fun/` contém 16 programas `.ec1` completos para os testes **ponta
   a ponta** (compilar → montar → linkar → executar), rodados por
   `scripts/run_tests_fun.sh` (`make test-fun`, requer `as`/`ld` de um
   ambiente Linux x86-64):
-  - `v1..v10` (aceitos, com o valor de retorno comparado ao esperado):
+  - `v1..v11` (aceitos, com o valor de retorno comparado ao esperado):
     função com dois parâmetros, função sem parâmetros, função com
     parâmetro e sem variáveis locais, função com variáveis locais, função
     com vários parâmetros (4), função recursiva (fatorial, usando
     `if`/`else`), função recursiva com duas chamadas (fibonacci), função
-    que chama outra função, parâmetro escondendo uma variável global, e
-    variável local escondendo (e atualizando) uma global;
+    que chama outra função, parâmetro escondendo uma variável global,
+    variável local escondendo (e atualizando) uma global, e variável local
+    cuja expressão de inicialização lê a global que ela esconde;
   - `e1..e5` (rejeitados com erro semântico): chamada a função nunca
     declarada, chamada com argumentos a menos ou a mais que os parâmetros
     da função, tentativa de chamar uma variável como se fosse função, e
@@ -599,3 +600,62 @@ dentro dos ramos de um `if`/`while`. Isso foi corrigido em `src/parser.cpp`
 qualquer nível de aninhamento, mas continua exigindo pelo menos um `return`
 em algum ponto do corpo (um corpo sem nenhum `return`, em qualquer nível,
 continua sendo um erro de sintaxe).
+
+## Limitações conhecidas
+
+O que a linguagem e o compilador **não** fazem hoje. Nenhum destes itens é
+um erro do que já está implementado — são fronteiras do que foi pedido até
+a Atividade 10:
+
+**Linguagem**
+
+- **Não há menos unário.** `-5` não é um literal negativo: o `-` só existe
+  como operador binário. `var x = -5;` é um erro de sintaxe; escreva
+  `var x = 0 - 5;`. Valores negativos em si funcionam (`= 4 - 7` imprime
+  `-3`), o que falta é a notação.
+- **Não há comentários.** Qualquer `#` ou `//` no fonte é um erro léxico.
+- **Identificadores são só letras e dígitos**, começando por letra
+  (`<ident> ::= <letra><letra_digito>*`). Não existe `_`, e é justamente
+  isso que garante que os rótulos internos do gerador de código
+  (`FIM_IF_0`, `WHILE_INICIO_1`, `imprime_num`, `_start`) nunca colidam com
+  um nome escrito pelo usuário.
+- **Dois nomes são reservados**: `sair` (sub-rotina do `runtime.s`) e
+  `PROGRAMA` (por causa do rótulo `FIM_PROGRAMA`, o ponto de retorno do
+  `main`). Usá-los como nome de variável global ou de função é um erro
+  semântico — antes eles produziam um assembly que só quebrava na montagem.
+  Como variável **local** os dois continuam válidos, porque locais viram
+  deslocamentos em `%rbp`, não símbolos do assembly.
+- **Só existe um tipo**, o inteiro de 64 bits com sinal. Não há booleanos:
+  as comparações `<`, `>` e `==` produzem `1` ou `0`, e `if`/`while` tratam
+  qualquer valor diferente de zero como verdadeiro.
+- **Variáveis locais só podem ser declaradas no início do corpo**, antes do
+  primeiro comando; um `var` depois de um comando é erro de sintaxe. Blocos
+  aninhados (`{ ... }`), os ramos de um `if` e o corpo de um `while` não
+  criam escopo próprio.
+- **Não há passagem por referência, ponteiros, vetores nem strings**, e a
+  única saída do programa é o inteiro impresso por `imprime_num` ao final.
+
+**Compilador**
+
+- **O corpo de uma função precisa conter pelo menos um `return`, mas não se
+  verifica se todo caminho de execução chega a um.** Em
+  `fun f(x) { if (x > 0) { return 1; } }`, a chamada `f(0)` cai no epílogo
+  sem passar por nenhum `return` e devolve o que estiver em `%rax` naquele
+  momento — um valor indefinido, sem aviso do compilador. Fechar esse buraco
+  exige uma análise de caminhos de retorno (um corpo "sempre retorna" se o
+  último comando é um `return`, ou um `if` com `else` em que os dois ramos
+  sempre retornam), que ainda não foi implementada.
+- **Divisão por zero não é detectada.** `= 1 / 0` compila e monta
+  normalmente; o processo morre com `SIGFPE` na execução. No modo
+  interpretado (`./ec1 arquivo.ec1`, só para expressões constantes) o erro é
+  reportado.
+- **Não há verificação de estouro de inteiro** em nenhuma operação.
+- **A recuperação de erros é mínima**: a análise léxica reporta todos os
+  caracteres inválidos de uma vez, mas o parser e a análise semântica param
+  no primeiro erro encontrado.
+- **O alvo é fixo: Linux x86-64, com `as` e `ld` da GNU binutils.** O
+  assembly gerado usa syscalls do Linux (`write`, `exit`) e a diretiva
+  `.lcomm`; não roda no Windows nem no macOS. O compilador em si (`./ec1`,
+  que gera o `.s`) compila e roda em qualquer plataforma com um g++ C++17 —
+  no Windows, use o WSL para os alvos `make test-cod`, `make test-cod-ev` e
+  `make test-fun`, que montam e executam os programas.

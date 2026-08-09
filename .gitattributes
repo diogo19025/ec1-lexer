@@ -1,0 +1,12 @@
+# Os scripts de teste e o Makefile sao executados por bash/make (inclusive
+# dentro do WSL, em maquinas Windows). Com a conversao automatica de fim de
+# linha do git no Windows (core.autocrlf=true), eles chegariam ao disco com
+# CRLF e o bash falharia logo na primeira linha ("set: - : invalid option",
+# "cd: ...\r: No such file or directory"). Forcar LF nesses arquivos mantem
+# o mesmo repositorio utilizavel em Windows, Linux e macOS.
+*.sh   text eol=lf
+Makefile text eol=lf
+
+# fontes .ec1 e o runtime em assembly tambem sao lidos por ferramentas Unix
+*.ec1  text eol=lf
+*.s    text eol=lf

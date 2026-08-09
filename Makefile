@@ -29,7 +29,7 @@ $(BIN): $(SRC)
 # test-semantica-fun : análise semântica das funções da linguagem Fun (Atividade 10 - parte 2)
 # test-codegen-fun   : geração de código das funções da linguagem Fun (Atividade 10 - parte 3)
 # test-fun           : testes ponta a ponta (compilar/montar/linkar/executar) da linguagem Fun (Atividade 10 - integração)
-test: test-sin test-ec2 test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun test-fun
+test: test-sin test-ec2 test-cod test-lex-ev test-parser-ev test-parser-cmd test-semantica-cmd test-cmd test-cod-ev test-lexer-fun test-parser-fun test-semantica-fun test-codegen-fun test-fun
 
 test-sin: $(BIN)
 	bash scripts/run_tests.sh

@@ -240,6 +240,70 @@ static void teste_recursao() {
 }
 
 // -----------------------------------------------------------------------
+// Redeclaracao no mesmo escopo
+//
+// Dois nomes iguais no mesmo escopo viram dois simbolos com o mesmo rotulo
+// no assembly (".lcomm x" duas vezes, um rotulo de funcao sobre uma variavel
+// global, ou dois deslocamentos diferentes para o mesmo nome no frame). Sem
+// esta verificacao o compilador terminava com sucesso e o programa so
+// quebrava na montagem, com um erro do 'as' que nao aponta para o fonte.
+// -----------------------------------------------------------------------
+
+static void teste_redeclaracao() {
+    checar(rejeita_semantico("var x = 1; var x = 2; main { return x; }"),
+           "duas variaveis globais com o mesmo nome sao rejeitadas");
+    checar(rejeita_semantico("fun f() { return 1; }"
+                             "fun f() { return 2; }"
+                             "main { return f(); }"),
+           "duas funcoes com o mesmo nome sao rejeitadas");
+    checar(rejeita_semantico("var f = 1; fun f() { return 2; }"
+                             "main { return f(); }"),
+           "funcao com o nome de uma variavel global e rejeitada");
+    checar(rejeita_semantico("fun f() { return 1; } var f = 2;"
+                             "main { return f; }"),
+           "variavel global com o nome de uma funcao e rejeitada");
+    checar(rejeita_semantico("fun f(x, x) { return x; } main { return f(1, 2); }"),
+           "dois parametros com o mesmo nome sao rejeitados");
+    checar(rejeita_semantico("fun f() { var a = 1; var a = 2; return a; }"
+                             "main { return f(); }"),
+           "duas variaveis locais com o mesmo nome sao rejeitadas");
+    checar(rejeita_semantico("fun f(a) { var a = 1; return a; }"
+                             "main { return f(0); }"),
+           "variavel local com o nome de um parametro e rejeitada");
+    checar(rejeita_semantico("main { var a = 1; var a = 2; return a; }"),
+           "duas locais do main com o mesmo nome sao rejeitadas");
+    checar(rejeita_semantico("x = 1; x = 2; = x"),
+           "declaracao repetida na forma EV e rejeitada");
+
+    // sombrear uma global continua valido: sao escopos diferentes
+    checar(aceita("var g = 1; fun f() { var g = 2; return g; }"
+                  "main { return f(); }"),
+           "local com o nome de uma global continua aceita (escopos diferentes)");
+    checar(aceita("var g = 1; fun f(g) { return g; } main { return f(2); }"),
+           "parametro com o nome de uma global continua aceito");
+    checar(aceita("fun f(a) { var b = a; return b; }"
+                  "fun g(a) { var b = a; return b; }"
+                  "main { return f(1) + g(2); }"),
+           "nomes iguais em funcoes diferentes continuam aceitos");
+}
+
+// -----------------------------------------------------------------------
+// Nomes reservados pelo gerador de codigo
+// -----------------------------------------------------------------------
+
+static void teste_nomes_reservados() {
+    checar(rejeita_semantico("fun sair() { return 1; } main { return sair(); }"),
+           "funcao chamada 'sair' e rejeitada (colide com o runtime)");
+    checar(rejeita_semantico("var sair = 1; main { return sair; }"),
+           "variavel global chamada 'sair' e rejeitada (colide com o runtime)");
+    checar(rejeita_semantico("fun PROGRAMA() { return 1; }"
+                             "main { return PROGRAMA(); }"),
+           "funcao chamada 'PROGRAMA' e rejeitada (colide com FIM_PROGRAMA)");
+    checar(aceita("fun f() { var sair = 1; return sair; } main { return f(); }"),
+           "'sair' como variavel local e aceito (nao vira simbolo do assembly)");
+}
+
+// -----------------------------------------------------------------------
 // Regressao: as formas EV e Cmd continuam validas
 // -----------------------------------------------------------------------
 
@@ -260,6 +324,8 @@ int main() {
     teste_aridade();
     teste_escopo();
     teste_recursao();
+    teste_redeclaracao();
+    teste_nomes_reservados();
     teste_regressao_ev_cmd();
 
     if (falhas == 0) {

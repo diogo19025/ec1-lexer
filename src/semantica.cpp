@@ -40,6 +40,37 @@ struct Escopo {
     const TabelaSimbolos* locais;
 };
 
+// Nomes que o gerador de código não pode usar porque já existem no assembly
+// produzido: 'sair' é uma sub-rotina do runtime (runtime.s) e viraria um
+// rótulo duplicado, e 'PROGRAMA' colidiria com FIM_PROGRAMA, o rótulo de
+// retorno do bloco main. Os demais nomes internos ('_start', 'imprime_num',
+// 'FIM_IF_0', ...) têm '_', que o lexer nunca aceita dentro de um
+// identificador, então não há como um programa da linguagem produzi-los.
+static bool nome_reservado(const std::string& nome) {
+    return nome == "sair" || nome == "PROGRAMA";
+}
+
+static void verificar_nome_disponivel(const std::string& nome) {
+    if (nome_reservado(nome))
+        throw ErroSemantico(
+            "'" + nome + "' e um nome reservado pelo gerador de codigo e "
+            "nao pode nomear uma variavel global ou funcao");
+}
+
+// Registra um nome numa tabela de símbolos, recusando redeclarações no mesmo
+// escopo. Sem esta verificação, dois nomes iguais chegam ao gerador de código
+// e viram dois símbolos com o mesmo rótulo no assembly (".lcomm x" duas
+// vezes, ou o rótulo de uma função sobre uma variável global): o compilador
+// diz "Assembly gerado" e sai com sucesso, e o programa só quebra depois, na
+// montagem, com uma mensagem do 'as' que não aponta para o arquivo-fonte.
+static void declarar(TabelaSimbolos& tabela, const std::string& nome,
+                     const Simbolo& simbolo, const std::string& escopo) {
+    if (tabela.find(nome) != tabela.end())
+        throw ErroSemantico(
+            "'" + nome + "' ja foi declarado " + escopo);
+    tabela[nome] = simbolo;
+}
+
 // Procura um nome primeiro no escopo local e depois no global; devolve nulo
 // se ele nao foi declarado em nenhum dos dois. E essa ordem que faz um
 // parametro ou variavel local esconder uma global de mesmo nome: como o
@@ -199,8 +230,12 @@ static void verificar_corpo(const std::vector<std::string>& parametros,
                             const Bloco& corpo,
                             const TabelaSimbolos& globais) {
     TabelaSimbolos locais;
+    // dois parametros com o mesmo nome, ou uma local repetindo o nome de um
+    // parametro, dariam o mesmo deslocamento a dois lugares diferentes do
+    // frame: um deles ficaria inacessivel, sem nenhum aviso
     for (const std::string& parametro : parametros)
-        locais[parametro] = {TipoSimbolo::PARAMETRO, 0};
+        declarar(locais, parametro, {TipoSimbolo::PARAMETRO, 0},
+                 "como parametro desta funcao");
 
     // a tabela local e consultada por ponteiro, entao continua crescendo
     // corretamente a cada variavel local registrada abaixo
@@ -208,7 +243,8 @@ static void verificar_corpo(const std::vector<std::string>& parametros,
 
     for (const Decl& local : variaveis_locais) {
         verificar_exp(local.get_valor(), escopo);
-        locais[local.get_nome()] = {TipoSimbolo::VARIAVEL_LOCAL, 0};
+        declarar(locais, local.get_nome(), {TipoSimbolo::VARIAVEL_LOCAL, 0},
+                 "neste corpo");
     }
 
     verificar_bloco(corpo, escopo);
@@ -228,7 +264,9 @@ void verificar_variaveis(const Programa& programa) {
             if (topo.tipo == TipoDeclaracaoTopo::VARIAVEL) {
                 const Decl& decl = programa.get_decls()[topo.indice];
                 verificar_exp(decl.get_valor(), Escopo{&globais, nullptr});
-                globais[decl.get_nome()] = {TipoSimbolo::VARIAVEL_GLOBAL, 0};
+                verificar_nome_disponivel(decl.get_nome());
+                declarar(globais, decl.get_nome(),
+                         {TipoSimbolo::VARIAVEL_GLOBAL, 0}, "no escopo global");
                 continue;
             }
 
@@ -236,8 +274,10 @@ void verificar_variaveis(const Programa& programa) {
             // a funcao e registrada na tabela global ANTES de seu corpo ser
             // analisado: e isso que permite a recursao direta, porque quando
             // o corpo de f for percorrido o nome f ja estara declarado.
-            globais[funcao.get_nome()] =
-                {TipoSimbolo::FUNCAO, funcao.get_parametros().size()};
+            verificar_nome_disponivel(funcao.get_nome());
+            declarar(globais, funcao.get_nome(),
+                     {TipoSimbolo::FUNCAO, funcao.get_parametros().size()},
+                     "no escopo global");
             verificar_corpo(funcao.get_parametros(),
                             funcao.get_variaveis_locais(),
                             funcao.get_corpo(), globais);
@@ -248,7 +288,9 @@ void verificar_variaveis(const Programa& programa) {
         // depois de verificada, a propria variavel entra na tabela.
         for (const Decl& decl : programa.get_decls()) {
             verificar_exp(decl.get_valor(), Escopo{&globais, nullptr});
-            globais[decl.get_nome()] = {TipoSimbolo::VARIAVEL_GLOBAL, 0};
+            verificar_nome_disponivel(decl.get_nome());
+            declarar(globais, decl.get_nome(),
+                     {TipoSimbolo::VARIAVEL_GLOBAL, 0}, "no escopo global");
         }
     }
 

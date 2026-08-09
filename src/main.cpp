@@ -16,17 +16,10 @@ static std::string nome_saida(const std::string& entrada) {
     return entrada.substr(0, ponto) + ".s";
 }
 
-// lê o texto e constrói a AST (agora um Programa: declarações + expressão
-// final, linguagem EV); lança ErroSintatico ou ErroSemantico em caso de erro
-static std::unique_ptr<Programa> construir_arvore(const std::string& texto) {
-    Lexer lex(texto);
-    std::vector<Token> tokens;
-    while (true) {
-        Token t = lex.proximo_token();
-        tokens.push_back(t);
-        if (t.get_tipo() == TokenType::FIM)
-            break;
-    }
+// constrói a AST (um Programa: declarações + expressão final, corpo de
+// comandos ou bloco main) a partir dos tokens já produzidos pelo lexer;
+// lança ErroSintatico ou ErroSemantico em caso de erro
+static std::unique_ptr<Programa> construir_arvore(std::vector<Token> tokens) {
     Parser parser(std::move(tokens));
     return parser.analisar();
 }
@@ -41,8 +34,20 @@ static int modo_compilar(const std::string& caminho) {
     std::ostringstream buf;
     buf << arq.rdbuf();
 
+    // análise léxica: um caractere fora do alfabeto da linguagem é um erro
+    // léxico, e não faz sentido analisar a sintaxe de uma entrada da qual
+    // tokens foram descartados (o parser reportaria um erro de sintaxe
+    // qualquer, apontando para o lugar errado)
+    Lexer lex(buf.str());
+    std::vector<Token> tokens = lex.tokenizar();
+    if (lex.houve_erro_lexico()) {
+        std::cerr << "Erro lexico: a entrada tem caracteres fora do alfabeto "
+                     "da linguagem (veja as mensagens acima)\n";
+        return 1;
+    }
+
     try {
-        std::unique_ptr<Programa> arvore = construir_arvore(buf.str());
+        std::unique_ptr<Programa> arvore = construir_arvore(std::move(tokens));
 
         std::string saida = nome_saida(caminho);
         std::ofstream out(saida);
@@ -82,8 +87,17 @@ static int modo_analisar(const std::string& caminho) {
     for (const Token& t : tokens)
         std::cout << t << "\n";
 
+    // os tokens válidos já foram mostrados acima; se algum era inválido, a
+    // lista está incompleta e analisar a sintaxe dela só produziria um erro
+    // enganoso, apontando para depois do caractere que causou o problema
+    if (lexer.houve_erro_lexico()) {
+        std::cerr << "Erro lexico: a entrada tem caracteres fora do alfabeto "
+                     "da linguagem (veja as mensagens acima)\n";
+        return 1;
+    }
+
     try {
-        std::unique_ptr<Programa> arvore = construir_arvore(entrada);
+        std::unique_ptr<Programa> arvore = construir_arvore(std::move(tokens));
 
         std::cout << "\nArvore (linear): " << arvore->imprimir() << "\n";
         std::cout << "Arvore (visual):\n";

@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 Lexer::Lexer(std::string entrada)
-    : entrada(std::move(entrada)), pos(0) {}
+    : entrada(std::move(entrada)), pos(0), erro_lexico(false) {}
 
 // helpers
 
@@ -25,6 +25,7 @@ Token Lexer::ler_numero() {
     if (pos < entrada.size() && std::isalpha((unsigned char)entrada[pos])) {
         while (pos < entrada.size() && std::isalnum((unsigned char)entrada[pos]))
             ++pos;
+        erro_lexico = true;
         return Token(TokenType::INVALIDO,
                      entrada.substr(inicio, pos - inicio), inicio);
     }
@@ -102,23 +103,26 @@ Token Lexer::proximo_token() {
         case ';': return Token(TokenType::PONTO_VIRGULA, ";", pos_atual);
         default:
             // caractere fora do alfabeto da linguagem = erro léxico
+            erro_lexico = true;
             return Token(TokenType::INVALIDO, std::string(1, c), pos_atual);
     }
 }
 
 std::vector<Token> Lexer::tokenizar() {
     std::vector<Token> tokens;
-    bool erro = false;
 
     while (true) {
         Token t = proximo_token();
 
         if (t.get_tipo() == TokenType::INVALIDO) {
-            // reporta e continua tentando
+            // reporta e continua tentando: assim uma entrada com vários
+            // caracteres inválidos mostra todos os erros de uma vez, em vez
+            // de um por execução. O sinalizador erro_lexico (já marcado ao
+            // produzir o token) é o que impede o chamador de tratar a lista
+            // resultante — incompleta — como uma entrada válida.
             std::cerr << "Erro léxico na posição " << t.get_posicao()
                       << ": caractere inválido '"
                       << t.get_lexema() << "'\n";
-            erro = true;
             continue;
         }
 
@@ -128,10 +132,9 @@ std::vector<Token> Lexer::tokenizar() {
             break;
     }
 
-    // se houve erro léxico, a lista pode estar incompleta — sinalizamos
-    if (erro) {
-        // mantém os tokens válidos coletados, mas o chamador sabe que houve erro
-    }
-
     return tokens;
+}
+
+bool Lexer::houve_erro_lexico() const {
+    return erro_lexico;
 }

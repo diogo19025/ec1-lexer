@@ -26,6 +26,8 @@ std::string token_type_to_string(TokenType tipo) {
         case TokenType::PONTO_VIRGULA: return "PontoVirgula";
         case TokenType::PAREN_ESQ: return "ParenEsq";
         case TokenType::PAREN_DIR: return "ParenDir";
+        case TokenType::COLCHETE_ESQ: return "ColcheteEsq";
+        case TokenType::COLCHETE_DIR: return "ColcheteDir";
         case TokenType::CHAVE_ESQ: return "ChaveEsq";
         case TokenType::CHAVE_DIR: return "ChaveDir";
         case TokenType::VIRGULA: return "Virgula";

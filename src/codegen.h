@@ -32,7 +32,8 @@ void gerar_assembly_completo(const Exp& exp, std::ostream& os);
 void gerar_codigo(const Programa& programa, std::ostream& os);
 
 // envolve o código gerado no modelo completo do arquivo assembly: declara
-// as variáveis globais na seção .bss (uma diretiva .lcomm por variável) e
+// as variáveis globais na seção .bss (8 bytes por escalar ou por elemento
+// de array) e
 // gera o código do programa (forma EV, Cmd ou Fun, veja gerar_codigo acima)
 // na seção .text, seguido das chamadas a imprime_num/sair (o valor impresso
 // é o que estiver em %rax nesse ponto — o valor de retorno do bloco main

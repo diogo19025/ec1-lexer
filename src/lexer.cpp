@@ -85,6 +85,8 @@ Token Lexer::proximo_token() {
     switch (c) {
         case '(': return Token(TokenType::PAREN_ESQ, "(", pos_atual);
         case ')': return Token(TokenType::PAREN_DIR, ")", pos_atual);
+        case '[': return Token(TokenType::COLCHETE_ESQ, "[", pos_atual);
+        case ']': return Token(TokenType::COLCHETE_DIR, "]", pos_atual);
         case '{': return Token(TokenType::CHAVE_ESQ, "{", pos_atual);
         case '}': return Token(TokenType::CHAVE_DIR, "}", pos_atual);
         case ',': return Token(TokenType::VIRGULA,   ",", pos_atual);

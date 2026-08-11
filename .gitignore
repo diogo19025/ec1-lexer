@@ -17,6 +17,8 @@
 /semantica_fun_tests.exe
 /codegen_fun_tests
 /codegen_fun_tests.exe
+/array_tests
+/array_tests.exe
 
 # artefatos gerados ao compilar programas .ec1 (assembly, objeto, executavel):
 # ignora tudo dentro dessas pastas de teste, exceto os fontes .ec1
@@ -28,4 +30,7 @@ tests/cmd/*
 !tests/cmd/*.ec1
 tests/fun/*
 !tests/fun/*.ec1
+tests/array/*
+!tests/array/*.ec1
 /.claude
+/tmp/

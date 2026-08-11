@@ -1,0 +1,5 @@
+var dados[2];
+
+main {
+    return dados[2];
+}

@@ -5,6 +5,7 @@
 #include <memory>
 #include <ostream>
 #include <vector>
+#include <cstddef>
 
 enum class Operador { SOMA, SUB, MULT, DIV, MENOR, MAIOR, IGUALDADE };
 
@@ -54,6 +55,22 @@ public:
     void imprimir_arvore(std::ostream& os, int nivel) const override;
 };
 
+// leitura de um elemento de array: <ident> '[' <exp> ']'
+class AcessoArray : public Exp {
+private:
+    std::string nome;
+    std::unique_ptr<Exp> indice;
+public:
+    AcessoArray(std::string nome, std::unique_ptr<Exp> indice);
+
+    const std::string& get_nome() const;
+    const Exp& get_indice() const;
+
+    long long avaliar() const override;
+    std::string imprimir() const override;
+    void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
 // chamada de funcao: <ident> '(' <params>? ')'
 class ChamadaFuncao : public Exp {
 private:
@@ -97,13 +114,18 @@ private:
     std::string nome;
     std::unique_ptr<Exp> valor;
     bool usa_palavra_var;
+    bool array;
+    std::size_t tamanho_array;
 public:
     Decl(std::string nome, std::unique_ptr<Exp> valor,
          bool usa_palavra_var = false);
+    Decl(std::string nome, std::size_t tamanho_array);
 
     const std::string& get_nome()  const;
     const Exp&         get_valor() const;
     bool               usa_var()   const;
+    bool               eh_array()  const;
+    std::size_t        get_tamanho_array() const;
 
     // declaração como string no formato da gramática
     std::string imprimir() const;
@@ -141,6 +163,24 @@ public:
 
     const std::string& get_nome()  const;
     const Exp&         get_valor() const;
+
+    std::string imprimir() const override;
+    void imprimir_arvore(std::ostream& os, int nivel) const override;
+};
+
+// escrita em um elemento de array: <ident> '[' <exp> ']' '=' <exp> ';'
+class AtribuicaoArray : public Cmd {
+private:
+    std::string nome;
+    std::unique_ptr<Exp> indice;
+    std::unique_ptr<Exp> valor;
+public:
+    AtribuicaoArray(std::string nome, std::unique_ptr<Exp> indice,
+                    std::unique_ptr<Exp> valor);
+
+    const std::string& get_nome() const;
+    const Exp& get_indice() const;
+    const Exp& get_valor() const;
 
     std::string imprimir() const override;
     void imprimir_arvore(std::ostream& os, int nivel) const override;

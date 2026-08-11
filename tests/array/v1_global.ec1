@@ -1,0 +1,10 @@
+var dados[5];
+
+main {
+    var i = 0;
+    while (i < 5) {
+        dados[i] = (i + 1) * 10;
+        i = i + 1;
+    }
+    return dados[0] + dados[4];
+}

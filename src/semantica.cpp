@@ -1,4 +1,5 @@
 #include "semantica.h"
+#include <limits>
 #include <string>
 #include <unordered_map>
 
@@ -17,16 +18,20 @@ ErroSemantico::ErroSemantico(const std::string& msg)
 // usar uma funcao como valor).
 enum class TipoSimbolo {
     VARIAVEL_GLOBAL,
+    ARRAY_GLOBAL,
     FUNCAO,
     PARAMETRO,
-    VARIAVEL_LOCAL
+    VARIAVEL_LOCAL,
+    ARRAY_LOCAL
 };
 
 struct Simbolo {
     TipoSimbolo tipo;
     // quantidade de parametros formais; so faz sentido quando tipo == FUNCAO,
     // e e o que permite conferir a aridade de cada chamada
-    std::size_t qtd_parametros;
+    std::size_t qtd_parametros = 0;
+    // quantidade de elementos; so faz sentido para ARRAY_GLOBAL/ARRAY_LOCAL
+    std::size_t tamanho_array = 0;
 };
 
 using TabelaSimbolos = std::unordered_map<std::string, Simbolo>;
@@ -89,12 +94,56 @@ static const Simbolo* resolver(const Escopo& escopo, const std::string& nome) {
     return nullptr;
 }
 
+static bool simbolo_eh_array(const Simbolo& simbolo) {
+    return simbolo.tipo == TipoSimbolo::ARRAY_GLOBAL ||
+           simbolo.tipo == TipoSimbolo::ARRAY_LOCAL;
+}
+
+static void verificar_tamanho_array(const Decl& decl) {
+    if (decl.get_tamanho_array() == 0)
+        throw ErroSemantico(
+            "array '" + decl.get_nome() + "' precisa ter tamanho positivo");
+    if (decl.get_tamanho_array() >
+        static_cast<std::size_t>(std::numeric_limits<long long>::max()) /
+            sizeof(long long))
+        throw ErroSemantico(
+            "array '" + decl.get_nome() + "' e grande demais");
+}
+
 // ---------------------------------------------------------------------------
 // Verificacao das expressoes
 // ---------------------------------------------------------------------------
 
 // percorre recursivamente uma expressao verificando se todo nome usado nela
 // ja foi declarado e se esta sendo usado de acordo com o seu tipo de simbolo.
+static void verificar_exp(const Exp& exp, const Escopo& escopo);
+
+static void verificar_acesso_array(const std::string& nome,
+                                   const Exp& indice,
+                                   const Escopo& escopo) {
+    const Simbolo* simbolo = resolver(escopo, nome);
+    if (simbolo == nullptr)
+        throw ErroSemantico(
+            "array '" + nome + "' usado antes de ser declarado");
+    if (!simbolo_eh_array(*simbolo))
+        throw ErroSemantico("'" + nome + "' nao e um array");
+
+    verificar_exp(indice, escopo);
+
+    // Indices literais podem ser conferidos em compilacao. Indices calculados
+    // continuam permitidos e sao resolvidos em tempo de execucao.
+    if (const auto* literal = dynamic_cast<const Const*>(&indice)) {
+        const long long valor = literal->get_valor();
+        if (valor < 0 || static_cast<unsigned long long>(valor) >=
+                             simbolo->tamanho_array) {
+            throw ErroSemantico(
+                "indice " + std::to_string(valor) + " fora dos limites do "
+                "array '" + nome + "' (tamanho " +
+                std::to_string(simbolo->tamanho_array) + ")");
+        }
+    }
+}
+
 static void verificar_exp(const Exp& exp, const Escopo& escopo) {
     if (const auto* var = dynamic_cast<const Var*>(&exp)) {
         const Simbolo* simbolo = resolver(escopo, var->get_nome());
@@ -110,6 +159,15 @@ static void verificar_exp(const Exp& exp, const Escopo& escopo) {
                 "'" + var->get_nome() +
                 "' e uma funcao, nao uma variavel");
         }
+        if (simbolo_eh_array(*simbolo)) {
+            throw ErroSemantico(
+                "array '" + var->get_nome() + "' precisa de um indice");
+        }
+        return;
+    }
+
+    if (const auto* acesso = dynamic_cast<const AcessoArray*>(&exp)) {
+        verificar_acesso_array(acesso->get_nome(), acesso->get_indice(), escopo);
         return;
     }
 
@@ -182,6 +240,16 @@ static void verificar_cmd(const Cmd& cmd, const Escopo& escopo) {
                 "'" + atrib->get_nome() +
                 "' e uma funcao, nao pode receber atribuicao");
         }
+        if (simbolo_eh_array(*simbolo)) {
+            throw ErroSemantico(
+                "array '" + atrib->get_nome() + "' precisa de um indice");
+        }
+        verificar_exp(atrib->get_valor(), escopo);
+        return;
+    }
+
+    if (const auto* atrib = dynamic_cast<const AtribuicaoArray*>(&cmd)) {
+        verificar_acesso_array(atrib->get_nome(), atrib->get_indice(), escopo);
         verificar_exp(atrib->get_valor(), escopo);
         return;
     }
@@ -242,9 +310,17 @@ static void verificar_corpo(const std::vector<std::string>& parametros,
     Escopo escopo{&globais, &locais};
 
     for (const Decl& local : variaveis_locais) {
-        verificar_exp(local.get_valor(), escopo);
-        declarar(locais, local.get_nome(), {TipoSimbolo::VARIAVEL_LOCAL, 0},
-                 "neste corpo");
+        if (local.eh_array()) {
+            verificar_tamanho_array(local);
+            declarar(locais, local.get_nome(),
+                     {TipoSimbolo::ARRAY_LOCAL, 0,
+                      local.get_tamanho_array()},
+                     "neste corpo");
+        } else {
+            verificar_exp(local.get_valor(), escopo);
+            declarar(locais, local.get_nome(),
+                     {TipoSimbolo::VARIAVEL_LOCAL, 0}, "neste corpo");
+        }
     }
 
     verificar_bloco(corpo, escopo);
@@ -263,10 +339,20 @@ void verificar_variaveis(const Programa& programa) {
         for (const DeclaracaoTopo& topo : programa.get_ordem_declaracoes()) {
             if (topo.tipo == TipoDeclaracaoTopo::VARIAVEL) {
                 const Decl& decl = programa.get_decls()[topo.indice];
-                verificar_exp(decl.get_valor(), Escopo{&globais, nullptr});
                 verificar_nome_disponivel(decl.get_nome());
-                declarar(globais, decl.get_nome(),
-                         {TipoSimbolo::VARIAVEL_GLOBAL, 0}, "no escopo global");
+                if (decl.eh_array()) {
+                    verificar_tamanho_array(decl);
+                    declarar(globais, decl.get_nome(),
+                             {TipoSimbolo::ARRAY_GLOBAL, 0,
+                              decl.get_tamanho_array()},
+                             "no escopo global");
+                } else {
+                    verificar_exp(decl.get_valor(),
+                                  Escopo{&globais, nullptr});
+                    declarar(globais, decl.get_nome(),
+                             {TipoSimbolo::VARIAVEL_GLOBAL, 0},
+                             "no escopo global");
+                }
                 continue;
             }
 

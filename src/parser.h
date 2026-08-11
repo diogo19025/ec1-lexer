@@ -55,7 +55,9 @@ private:
     // os operadores relacionais tem a menor precedencia: em "a + 1 < b * 2"
     // os dois lados sao agrupados antes da comparacao.
     Decl analisaDecl();                  // <decl> ::= <ident> '=' <exp> ';'
-    Decl analisaVarDecl();               // <vardecl> ::= 'var' <ident> '=' <exp> ';'
+    // <vardecl> ::= 'var' <ident> '=' <exp> ';'
+    //             | 'var' <ident> '[' <num> ']' ';'
+    Decl analisaVarDecl();
     Funcao analisaFuncao();              // <fundecl>
     std::vector<std::string> analisaParametrosFormais();
     std::vector<std::unique_ptr<Exp>> analisaArgumentos();
@@ -63,7 +65,7 @@ private:
     std::unique_ptr<Exp> analisaExp();   // <exp>:   comparacoes (<, >, ==)
     std::unique_ptr<Exp> analisaExpA();  // <exp_a>: adicao e subtracao
     std::unique_ptr<Exp> analisaExpM();  // <exp_m>: multiplicacao e divisao
-    std::unique_ptr<Exp> analisaPrim();  // <prim>:  <num> | <ident> | '(' <exp> ')'
+    std::unique_ptr<Exp> analisaPrim();  // numero, nome, acesso, chamada ou parenteses
 
 public:
     explicit Parser(std::vector<Token> tokens);

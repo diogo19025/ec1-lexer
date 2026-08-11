@@ -1,0 +1,5 @@
+var valor = 1;
+
+main {
+    return valor[0];
+}

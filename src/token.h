@@ -13,6 +13,8 @@ enum class TokenType {
     PONTO_VIRGULA,
     PAREN_ESQ,
     PAREN_DIR,
+    COLCHETE_ESQ,
+    COLCHETE_DIR,
     CHAVE_ESQ,
     CHAVE_DIR,
     VIRGULA,

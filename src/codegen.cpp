@@ -53,6 +53,16 @@ static void gerar_rec(const Exp& no, std::ostream& os,
         return;
     }
 
+    // acesso a array: calcula o indice em %rax, carrega o endereco do
+    // primeiro elemento em %rdx e usa enderecamento base + indice * 8.
+    if (const auto* acesso = dynamic_cast<const AcessoArray*>(&no)) {
+        gerar_rec(acesso->get_indice(), os, locais);
+        os << "    lea " << operando(acesso->get_nome(), locais)
+           << ", %rdx\n";
+        os << "    mov (%rdx,%rax,8), %rax\n";
+        return;
+    }
+
     // chamada de função: calcula cada argumento e empilha, do último para
     // o primeiro, de modo que o primeiro argumento fique no topo da pilha
     // (mais perto do endereço de retorno) quando o "call" acontecer; a
@@ -143,6 +153,9 @@ void gerar_assembly_completo(const Exp& exp, std::ostream& os) {
 // resultado na variável (reservada na seção .bss). Uma declaração global só
 // pode usar outras globais, então nunca precisa de um mapa local.
 static void gerar_decl(const Decl& decl, std::ostream& os) {
+    // Arrays ficam zerados pela secao .bss e nao possuem inicializador.
+    if (decl.eh_array())
+        return;
     os << "    # " << decl.get_nome() << " = " << decl.get_valor().imprimir() << ";\n";
     gerar_rec(decl.get_valor(), os);
     os << "    mov %rax, " << decl.get_nome() << "\n";
@@ -177,6 +190,18 @@ static void gerar_cmd(const Cmd& cmd, std::ostream& os,
            << atrib->get_valor().imprimir() << ";\n";
         gerar_rec(atrib->get_valor(), os, locais);
         os << "    mov %rax, " << operando(atrib->get_nome(), locais) << "\n";
+        return;
+    }
+
+    if (const auto* atrib = dynamic_cast<const AtribuicaoArray*>(&cmd)) {
+        os << "    # " << atrib->imprimir() << "\n";
+        gerar_rec(atrib->get_indice(), os, locais);
+        os << "    push %rax\n";
+        gerar_rec(atrib->get_valor(), os, locais);
+        os << "    pop %rbx\n";
+        os << "    lea " << operando(atrib->get_nome(), locais)
+           << ", %rdx\n";
+        os << "    mov %rax, (%rdx,%rbx,8)\n";
         return;
     }
 
@@ -263,13 +288,31 @@ static std::string deslocamento_local(std::size_t i) {
     return std::to_string(-8 * static_cast<long long>(i + 1)) + "(%rbp)";
 }
 
+static std::size_t slots_da_decl(const Decl& decl) {
+    return decl.eh_array() ? decl.get_tamanho_array() : 1;
+}
+
+static std::size_t total_slots(const std::vector<Decl>& variaveis_locais) {
+    std::size_t total = 0;
+    for (const Decl& local : variaveis_locais)
+        total += slots_da_decl(local);
+    return total;
+}
+
 static MapaLocal montar_mapa_local(const std::vector<std::string>& parametros,
                                     const std::vector<Decl>& variaveis_locais) {
     MapaLocal locais;
     for (std::size_t i = 0; i < parametros.size(); ++i)
         locais[parametros[i]] = deslocamento_parametro(i);
-    for (std::size_t i = 0; i < variaveis_locais.size(); ++i)
-        locais[variaveis_locais[i].get_nome()] = deslocamento_local(i);
+    std::size_t slot = 0;
+    for (const Decl& local : variaveis_locais) {
+        const std::size_t quantidade = slots_da_decl(local);
+        // O primeiro elemento do array fica no menor endereco reservado;
+        // assim os elementos seguintes sao alcancados somando indice * 8.
+        locais[local.get_nome()] =
+            deslocamento_local(slot + quantidade - 1);
+        slot += quantidade;
+    }
     return locais;
 }
 
@@ -290,14 +333,31 @@ static void gerar_locais(const std::vector<std::string>& parametros,
                          const std::vector<Decl>& variaveis_locais,
                          std::ostream& os) {
     MapaLocal visiveis = montar_mapa_local(parametros, {});
+    std::size_t slot = 0;
 
-    for (std::size_t i = 0; i < variaveis_locais.size(); ++i) {
-        const Decl& local = variaveis_locais[i];
+    for (const Decl& local : variaveis_locais) {
+        const std::size_t quantidade = slots_da_decl(local);
+        const std::string base =
+            deslocamento_local(slot + quantidade - 1);
+
+        if (local.eh_array()) {
+            os << "    # var " << local.get_nome() << "["
+               << local.get_tamanho_array() << "];\n";
+            visiveis[local.get_nome()] = base;
+            for (std::size_t i = 0; i < quantidade; ++i)
+                os << "    movq $0, "
+                   << deslocamento_local(slot + quantidade - 1 - i)
+                   << "\n";
+            slot += quantidade;
+            continue;
+        }
+
         os << "    # var " << local.get_nome() << " = "
            << local.get_valor().imprimir() << ";\n";
         gerar_rec(local.get_valor(), os, visiveis);
-        visiveis[local.get_nome()] = deslocamento_local(i);
+        visiveis[local.get_nome()] = base;
         os << "    mov %rax, " << visiveis[local.get_nome()] << "\n";
+        slot += quantidade;
     }
 }
 
@@ -322,8 +382,9 @@ static void gerar_funcao(const Funcao& funcao, std::ostream& os) {
     os << funcao.get_nome() << ":\n";
     os << "    push %rbp\n";
     os << "    mov %rsp, %rbp\n";
-    if (!funcao.get_variaveis_locais().empty())
-        os << "    sub $" << (8 * funcao.get_variaveis_locais().size())
+    const std::size_t slots = total_slots(funcao.get_variaveis_locais());
+    if (slots != 0)
+        os << "    sub $" << (8 * slots)
            << ", %rsp\n";
 
     gerar_locais(funcao.get_parametros(), funcao.get_variaveis_locais(), os);
@@ -344,11 +405,12 @@ static void gerar_funcao(const Funcao& funcao, std::ostream& os) {
 static void gerar_main(const Programa& programa, std::ostream& os) {
     const std::vector<Decl>& locais_decl = programa.get_locais_main();
     MapaLocal locais = montar_mapa_local({}, locais_decl);
+    const std::size_t slots = total_slots(locais_decl);
 
-    if (!locais_decl.empty()) {
+    if (slots != 0) {
         os << "    push %rbp\n";
         os << "    mov %rsp, %rbp\n";
-        os << "    sub $" << (8 * locais_decl.size()) << ", %rsp\n";
+        os << "    sub $" << (8 * slots) << ", %rsp\n";
     }
 
     gerar_locais({}, locais_decl, os);
@@ -408,8 +470,10 @@ static void gerar_funcoes(const Programa& programa, std::ostream& os) {
 // 8 bytes (inteiro de 64 bits) para cada uma
 static void gerar_bss(const Programa& programa, std::ostream& os) {
     os << "    .section .bss\n";
-    for (const Decl& decl : programa.get_decls())
-        os << "    .lcomm " << decl.get_nome() << ", 8\n";
+    for (const Decl& decl : programa.get_decls()) {
+        const std::size_t bytes = 8 * slots_da_decl(decl);
+        os << "    .lcomm " << decl.get_nome() << ", " << bytes << "\n";
+    }
 }
 
 void gerar_assembly_completo(const Programa& programa, std::ostream& os) {

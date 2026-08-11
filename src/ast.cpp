@@ -45,6 +45,29 @@ void Var::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << nome << "\n";
 }
 
+// AcessoArray
+
+AcessoArray::AcessoArray(std::string nome, std::unique_ptr<Exp> indice)
+    : nome(std::move(nome)), indice(std::move(indice)) {}
+
+const std::string& AcessoArray::get_nome() const { return nome; }
+const Exp& AcessoArray::get_indice() const { return *indice; }
+
+long long AcessoArray::avaliar() const {
+    throw std::runtime_error(
+        "array '" + nome + "' nao pode ser avaliado sem um ambiente de valores");
+}
+
+std::string AcessoArray::imprimir() const {
+    return nome + "[" + indice->imprimir() + "]";
+}
+
+void AcessoArray::imprimir_arvore(std::ostream& os, int nivel) const {
+    const std::string indent(static_cast<std::size_t>(nivel) * 2, ' ');
+    os << indent << "acesso-array " << nome << "\n";
+    indice->imprimir_arvore(os, nivel + 1);
+}
+
 // ChamadaFuncao
 
 ChamadaFuncao::ChamadaFuncao(
@@ -129,18 +152,36 @@ Decl::Decl(std::string nome, std::unique_ptr<Exp> valor,
            bool usa_palavra_var)
     : nome(std::move(nome)),
       valor(std::move(valor)),
-      usa_palavra_var(usa_palavra_var) {}
+      usa_palavra_var(usa_palavra_var),
+      array(false),
+      tamanho_array(0) {}
+
+Decl::Decl(std::string nome, std::size_t tamanho_array)
+    : nome(std::move(nome)),
+      valor(nullptr),
+      usa_palavra_var(true),
+      array(true),
+      tamanho_array(tamanho_array) {}
 
 const std::string& Decl::get_nome()  const { return nome; }
 const Exp&         Decl::get_valor() const { return *valor; }
 bool               Decl::usa_var()   const { return usa_palavra_var; }
+bool               Decl::eh_array()  const { return array; }
+std::size_t        Decl::get_tamanho_array() const { return tamanho_array; }
 
 std::string Decl::imprimir() const {
+    if (array)
+        return "var " + nome + "[" + std::to_string(tamanho_array) + "];";
     return std::string(usa_palavra_var ? "var " : "") +
            nome + " = " + valor->imprimir() + ";";
 }
 
 void Decl::imprimir_arvore(std::ostream& os, int nivel) const {
+    if (array) {
+        os << std::string(static_cast<std::size_t>(nivel) * 2, ' ')
+           << "array " << nome << "[" << tamanho_array << "]\n";
+        return;
+    }
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "=\n";
     os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << nome << "\n";
     valor->imprimir_arvore(os, nivel + 1);
@@ -162,6 +203,32 @@ void Atribuicao::imprimir_arvore(std::ostream& os, int nivel) const {
     os << std::string(static_cast<std::size_t>(nivel) * 2, ' ') << "=\n";
     os << std::string(static_cast<std::size_t>(nivel + 1) * 2, ' ') << nome << "\n";
     valor->imprimir_arvore(os, nivel + 1);
+}
+
+// AtribuicaoArray
+
+AtribuicaoArray::AtribuicaoArray(std::string nome,
+                                 std::unique_ptr<Exp> indice,
+                                 std::unique_ptr<Exp> valor)
+    : nome(std::move(nome)),
+      indice(std::move(indice)),
+      valor(std::move(valor)) {}
+
+const std::string& AtribuicaoArray::get_nome() const { return nome; }
+const Exp& AtribuicaoArray::get_indice() const { return *indice; }
+const Exp& AtribuicaoArray::get_valor() const { return *valor; }
+
+std::string AtribuicaoArray::imprimir() const {
+    return nome + "[" + indice->imprimir() + "] = " + valor->imprimir() + ";";
+}
+
+void AtribuicaoArray::imprimir_arvore(std::ostream& os, int nivel) const {
+    const std::string indent(static_cast<std::size_t>(nivel) * 2, ' ');
+    os << indent << "atrib-array " << nome << "\n";
+    os << indent << "  indice\n";
+    indice->imprimir_arvore(os, nivel + 2);
+    os << indent << "  valor\n";
+    valor->imprimir_arvore(os, nivel + 2);
 }
 
 // Retorno

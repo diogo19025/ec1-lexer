@@ -1,0 +1,15 @@
+fun somaquadrados(n) {
+    var valores[4];
+    var i = 0;
+    var soma = 0;
+    while (i < n) {
+        valores[i] = i * i;
+        soma = soma + valores[i];
+        i = i + 1;
+    }
+    return soma;
+}
+
+main {
+    return somaquadrados(4);
+}

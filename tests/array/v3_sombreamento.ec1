@@ -1,0 +1,13 @@
+var dados[2];
+
+fun somaLocal() {
+    var dados[2];
+    dados[0] = 7;
+    dados[1] = 5;
+    return dados[0] + dados[1];
+}
+
+main {
+    dados[0] = 3;
+    return somaLocal() + dados[0];
+}

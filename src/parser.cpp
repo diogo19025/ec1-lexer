@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "semantica.h"
+#include <limits>
 
 ErroSintatico::ErroSintatico(const std::string& msg)
     : std::runtime_error(msg) {}
@@ -40,10 +41,33 @@ Decl Parser::analisaDecl() {
 }
 
 // <vardecl> ::= 'var' <ident> '=' <exp> ';'
+//             | 'var' <ident> '[' <num> ']' ';'
 Decl Parser::analisaVarDecl() {
     consumir(TokenType::VAR, "no inicio da declaracao de variavel");
     Token nomeTok = consumir(TokenType::IDENTIFICADOR,
                               "como nome da variavel");
+
+    if (atual().get_tipo() == TokenType::COLCHETE_ESQ) {
+        avancar();
+        Token tamanhoTok = consumir(
+            TokenType::LITERAL, "como tamanho fixo do array");
+        consumir(TokenType::COLCHETE_DIR, "para fechar o tamanho do array");
+        consumir(TokenType::PONTO_VIRGULA, "ao final da declaracao do array");
+
+        try {
+            unsigned long long tamanho = std::stoull(tamanhoTok.get_lexema());
+            if (tamanho > std::numeric_limits<std::size_t>::max())
+                throw std::out_of_range("tamanho de array");
+            return Decl(nomeTok.get_lexema(),
+                        static_cast<std::size_t>(tamanho));
+        } catch (const std::out_of_range&) {
+            throw ErroSintatico(
+                "tamanho de array grande demais: \"" +
+                tamanhoTok.get_lexema() + "\" na posicao " +
+                std::to_string(tamanhoTok.get_posicao()));
+        }
+    }
+
     consumir(TokenType::IGUAL, "apos o nome da variavel");
     std::unique_ptr<Exp> valor = analisaExp();
     consumir(TokenType::PONTO_VIRGULA, "ao final da declaracao");
@@ -148,7 +172,8 @@ std::unique_ptr<Exp> Parser::analisaExpM() {
     return esq;
 }
 
-// <prim> ::= <num> | <ident> | '(' <exp> ')'
+// <prim> ::= <num> | <ident> | <ident> '[' <exp> ']'
+//          | <chamada> | '(' <exp> ')'
 std::unique_ptr<Exp> Parser::analisaPrim() {
     const Token& tok = atual();
 
@@ -172,6 +197,15 @@ std::unique_ptr<Exp> Parser::analisaPrim() {
                 nome.get_lexema(), analisaArgumentos());
         }
 
+        if (atual().get_tipo() == TokenType::COLCHETE_ESQ) {
+            avancar();
+            std::unique_ptr<Exp> indice = analisaExp();
+            consumir(TokenType::COLCHETE_DIR,
+                     "para fechar o indice do array");
+            return std::make_unique<AcessoArray>(
+                nome.get_lexema(), std::move(indice));
+        }
+
         // referencia a uma variavel: a verificacao de declaracao pertence
         // a analise semantica.
         return std::make_unique<Var>(nome.get_lexema());
@@ -185,7 +219,8 @@ std::unique_ptr<Exp> Parser::analisaPrim() {
     }
 
     throw ErroSintatico(
-        "esperava uma expressao (numero, variavel ou '('), mas encontrou " +
+        "esperava uma expressao (numero, variavel, acesso a array ou '('), "
+        "mas encontrou " +
         token_type_to_string(tok.get_tipo()) + " (\"" + tok.get_lexema() +
         "\") na posicao " + std::to_string(tok.get_posicao()));
 }
@@ -295,12 +330,26 @@ std::unique_ptr<Cmd> Parser::analisaCmd() {
 }
 
 // <atrib> ::= <ident> '=' <exp> ';'
+//           | <ident> '[' <exp> ']' '=' <exp> ';'
 std::unique_ptr<Cmd> Parser::analisaAtribuicao() {
     Token nomeTok = consumir(TokenType::IDENTIFICADOR,
                               "como nome de variavel na atribuicao");
+
+    std::unique_ptr<Exp> indice;
+    if (atual().get_tipo() == TokenType::COLCHETE_ESQ) {
+        avancar();
+        indice = analisaExp();
+        consumir(TokenType::COLCHETE_DIR,
+                 "para fechar o indice do array na atribuicao");
+    }
+
     consumir(TokenType::IGUAL, "apos o nome da variavel na atribuicao");
     std::unique_ptr<Exp> valor = analisaExp();
     consumir(TokenType::PONTO_VIRGULA, "ao final da atribuicao");
+
+    if (indice)
+        return std::make_unique<AtribuicaoArray>(
+            nomeTok.get_lexema(), std::move(indice), std::move(valor));
     return std::make_unique<Atribuicao>(nomeTok.get_lexema(), std::move(valor));
 }
 
@@ -380,9 +429,6 @@ std::unique_ptr<Programa> Parser::analisaProgramaFun() {
         std::move(ordem_declaracoes), std::move(locais_main),
         std::move(principal));
 
-    // Nesta primeira parte, a verificacao existente continua cobrindo
-    // variaveis globais e o bloco main. Escopos e chamadas de funcao sao
-    // responsabilidade da Parte 2 da Atividade 10.
     verificar_variaveis(*programa);
     return programa;
 }

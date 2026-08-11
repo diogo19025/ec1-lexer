@@ -1,0 +1,6 @@
+var dados[2];
+
+main {
+    dados = 1;
+    return 0;
+}

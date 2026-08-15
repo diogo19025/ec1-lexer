@@ -5,6 +5,13 @@ sintática, construção da AST, análise semântica e geração de assembly x86
 A linguagem aceita expressões inteiras, variáveis, comandos, funções recursivas
 e arrays fixos de inteiros.
 
+## Integrantes do grupo
+
+- Ivaldo Pureza Freire Junior — 20230012879
+- Diogo Soares Alves Barreto de Carvalho — 20230012799
+- Luis Henrique Fernandes de Carvalho — 20230102410
+- Tiago Brito e Silva — 20230102439
+
 ## Requisitos
 
 - `g++` com suporte a C++17;
